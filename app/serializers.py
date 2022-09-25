@@ -78,4 +78,15 @@ class PurchaseSerializer(serializers.ModelSerializer):
 class ProfileSerializer(serializers.ModelSerializer):
     class Meta:
         model = models.User
-        fields = ['id','phoneno','username','name','profileimage','email']
+        fields = ['id','phoneno','username','name','profileimage','email','address','start_d','end_d']
+
+class FeedBackSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = models.FeedBack
+        fields = ['id','message']
+
+class AppVersionSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = models.AppVersion
+        fields = ['version','url','releaseNote']
+

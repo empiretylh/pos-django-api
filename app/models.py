@@ -9,7 +9,11 @@ class User(AbstractUser):
     name = models.CharField(max_length=255)
     profileimage = models.ImageField(upload_to="img/profile/%y/%mm/%dd",null=True)
     email = models.CharField(max_length=255)
-
+    
+    address = models.TextField(blank=True,null=True)
+    start_d = models.DateTimeField(null=True)
+    end_d = models.DateTimeField(null=True)
+    
     def uploadimage(self,profileimage:str):
         temp_file = ContentFile(profileimage)
         self.profileimage.save(f'{self.pk}'.jpeg,temp_file)
@@ -98,3 +102,19 @@ class Purchase(models.Model):
     def __str__(self):
         return self.title +' ' + self.description
 
+class FeedBack(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    message = models.TextField(blank=True,null=False)
+
+    def __str__(self):
+        return self.user + ' '+ self.message
+
+class AppVersion(models.Model):
+    version = models.CharField(max_length=255,null=False)
+    url = models.TextField(null=False)
+    releaseNote = models.TextField()
+
+    def __str__(self):
+        return self.version
+
+    
