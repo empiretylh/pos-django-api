@@ -18,7 +18,9 @@ urlpatterns=[
     path('api/profile/',apiview.ProfileAPIView.as_view(),name='profitnloss'),
    
     path('api/toproduct/',apiview.TopProductsView.as_view(),name='topproduct'),
-
+    path('api/feedback/',apiview.FeedBackAPIView.as_view(),name='feedback'),
+    path('api/pricing/',apiview.PricingAPIView.as_view(),name='pricing'),
+    path('api/pricingrequest/',apiview.PricingRequestView.as_view(),name='pricing_request'),
         
 
     path('auth/login/',obtain_auth_token,name='auth_user_login'),
