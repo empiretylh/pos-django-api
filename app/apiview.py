@@ -679,7 +679,7 @@ class PricingRequestView(APIView):
         pr = models.PricingRequest.objects.get(user=user,done=False)
         # pr.done = True
         user.start_d = pr.date
-        user.end_d = pr.date + pr.rq_price+days
+        user.end_d = pr.date + pr.rq_price.days
         user.save()
 
         return Response(status=status.HTTP_201_CREATED)
