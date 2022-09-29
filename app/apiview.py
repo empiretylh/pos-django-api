@@ -647,11 +647,15 @@ class PricingAPIView(APIView):
         data = models.Pricing.objects.all()
         pricing_ser = serializers.PricingSerializer(data, many=True)
         user = get_user_model().objects.get(username=request.user)
-        pricing_req = models.PricingRequest.objects.last(user=user)
-        pr_req_ser = serializers.PricingRequestSerializer(pricing_req,many=True)
+        pr_req_ser={data:{}}
+        try:
+            pricing_req = models.PricingRequest.objects.filter(user=user,done=False)
+            pr_req_ser = serializers.PricingRequestSerializer(pricing_req,many=True)
+        except ObjectDoesNotExist:
+            print('Objects Does Not exist')
         CombineData = {
-            pricing:pricing_ser.data,
-            pr_request: pr_req_ser.data
+            'pricing':pricing_ser.data,
+            'pr_request': pr_req_ser.data
         }
 
         return Response(CombineData)
