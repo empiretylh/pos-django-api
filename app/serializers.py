@@ -79,7 +79,7 @@ class ProfileSerializer(serializers.ModelSerializer):
     class Meta:
         model = models.User
         fields = ['id', 'phoneno', 'username', 'name',
-                  'profileimage', 'email', 'address', 'start_d', 'end_d']
+                  'profileimage', 'email', 'address', 'start_d', 'end_d','is_superuser','is_plan']
 
 
 class FeedBackSerializer(serializers.ModelSerializer):
@@ -97,10 +97,12 @@ class AppVersionSerializer(serializers.ModelSerializer):
 class PricingSerializer(serializers.ModelSerializer):
     class Meta:
         model = models.Pricing
-        fields = ['title', 'price']
+        fields = ['id','title', 'price','days','discount']
 
 
 class PricingRequestSerializer(serializers.ModelSerializer):
+    user = ProfileSerializer(read_only=True)
+    rq_price = PricingSerializer(read_only=True)
     class Meta:
         model = models.PricingRequest
-        fields = ['username','rq_price', 'date','done']
+        fields = ['id','user','rq_price', 'date','done',]

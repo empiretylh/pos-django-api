@@ -19,6 +19,14 @@ from . import models, serializers
 import json
 
 
+def CHECK_IN_PLAN_AND_RESPONSE(user,data,**args):
+    if  user.is_plan:
+        return Response('End Plan or No Purchase Plan')
+    else:
+        return Response(data=data,**args)
+
+    print('User is in Plan')
+
 class CreateUserApiView(CreateAPIView):
 
     permission_classes = [AllowAny]
@@ -62,7 +70,8 @@ class Product(APIView):
     # permission_classes = [AllowAny]
 
     def get(self, request):
-        user = get_user_model().objects.get(username=request.user)
+        user = get_user_model().objects.get(username=request.user,is_plan=True)
+       
         data = models.Product.objects.filter(user=user)
         s = serializers.ProductSerializer(data, many=True)
         return Response(s.data)
@@ -74,7 +83,7 @@ class Product(APIView):
 
         description = request.data['description']
         category = models.Category.objects.get(id=request.data['category'])
-        user = get_user_model().objects.get(username=request.user)
+        user = get_user_model().objects.get(username=request.user,is_plan=True)
         pic = request.data['pic']
         models.Product.objects.create(
             name=name, user=user, pic=pic, price=price, qty=qty, description=description, category=category)
@@ -82,7 +91,7 @@ class Product(APIView):
 
     def put(self, request):
         id = request.data['id']
-        user = get_user_model().objects.get(username=request.user)
+        user = get_user_model().objects.get(username=request.user,is_plan=True)
         name = request.data['name']
         price = request.data['price']
         qty = request.data['qty']
@@ -110,7 +119,7 @@ class Product(APIView):
 
     def delete(self, request):
         id = request.data['id']
-        user = get_user_model().objects.get(username=request.user)
+        user = get_user_model().objects.get(username=request.user,is_plan=True)
 
         PRODUCTS = models.Product.objects.get(user=user, id=id)
         PRODUCTS.delete()
@@ -163,7 +172,7 @@ class Sales(APIView):
     def get(self, request):
         type = request.GET.get('type')
         time = request.GET.get('time')
-        user = get_user_model().objects.get(username=request.user)
+        user = get_user_model().objects.get(username=request.user,is_plan=True)
         d = datetime.now()
         chartdata = {}
 
@@ -214,7 +223,7 @@ class Sales(APIView):
         grandtotal = request.data['grandtotal']
         description = request.data['description']
         # date = request.data['date']
-        user = get_user_model().objects.get(username=request.user)
+        user = get_user_model().objects.get(username=request.user,is_plan=True)
         S = models.Sales.objects.create(user=user, receiptNumber=receiptNumber, customerName=customerName,
                                         totalAmount=totalAmount, tax=tax, discount=discount, grandtotal=grandtotal, description=description)
 
@@ -241,7 +250,7 @@ class SoldProduct(APIView):
     def get(self, request):
         rn = request.GET.get['receiptNumber']
 
-        user = get_user_model().objects.get(username=request.user)
+        user = get_user_model().objects.get(username=request.user,is_plan=True)
         S = models.Sales.objects.get(user=user, receiptNumber=rn)
         seri = serializers.SoldProductSerializer(S.products.all(), many=True)
         return Response(seri.data)
@@ -251,7 +260,7 @@ class TopProductsView(APIView):
 
     def get(self, request):
         time = request.GET.get('time')
-        user = get_user_model().objects.get(username=request.user)
+        user = get_user_model().objects.get(username=request.user,is_plan=True)
         d = datetime.now()
 
         if time == 'today':
@@ -349,7 +358,7 @@ class Expense(APIView):
     def get(self, request):
         time = request.GET.get('time')
         d = datetime.now()
-        user = get_user_model().objects.get(username=request.user)
+        user = get_user_model().objects.get(username=request.user,is_plan=True) 
         if time == 'today':
             data = models.Expense.objects.filter(user=user, date__year=str(
                 d.year), date__month=str(d.month), date__day=str(d.day))
@@ -385,7 +394,7 @@ class Expense(APIView):
         return Response(CombineData)
 
     def post(self, request):
-        user = get_user_model().objects.get(username=request.user)
+        user = get_user_model().objects.get(username=request.user,is_plan=True)
         title = request.data['title']
         price = request.data['price']
         date = request.data['date']
@@ -397,7 +406,7 @@ class Expense(APIView):
         return Response(status=status.HTTP_201_CREATED)
 
     def put(self, request):
-        user = get_user_model().objects.get(username=request.user)
+        user = get_user_model().objects.get(username=request.user,is_plan=True)
         id = request.data['id']
         title = request.data['title']
         price = request.data['price']
@@ -413,7 +422,7 @@ class Expense(APIView):
         return Response(status=status.HTTP_201_CREATED)
 
     def delete(self, request):
-        user = get_user_model().objects.get(username=request.user)
+        user = get_user_model().objects.get(username=request.user,is_plan=True)
         id = request.data['id']
         ex = models.Expense.objects.get(user=user, id=id)
         ex.delete()
@@ -423,7 +432,7 @@ class Purchase(APIView):
     def get(self, request):
         time = request.GET.get('time')
         d = datetime.now()
-        user = get_user_model().objects.get(username=request.user)
+        user = get_user_model().objects.get(username=request.user,is_plan=True)
         data = models.Purchase.objects.filter(user=user)
         if time == 'today':
             data = models.Purchase.objects.filter(user=user, date__year=str(
@@ -459,7 +468,7 @@ class Purchase(APIView):
         return Response(CombineData)
 
     def post(self, request):
-        user = get_user_model().objects.get(username=request.user)
+        user = get_user_model().objects.get(username=request.user,is_plan=True)
         title = request.data['title']
         price = request.data['price']
         date = request.data['date']
@@ -471,7 +480,7 @@ class Purchase(APIView):
         return Response(status=status.HTTP_201_CREATED)
 
     def put(self, request):
-        user = get_user_model().objects.get(username=request.user)
+        user = get_user_model().objects.get(username=request.user,is_plan=True)
         id = request.data['id']
         title = request.data['title']
         price = request.data['price']
@@ -495,7 +504,7 @@ class Purchase(APIView):
 
 class OtherIncome(APIView):
     def get(self, request):
-        user = get_user_model().objects.get(username=request.user)
+        user = get_user_model().objects.get(username=request.user,is_plan=True)
         time = request.GET.get('time')
 
         d = datetime.now()
@@ -535,7 +544,7 @@ class OtherIncome(APIView):
         return Response(CombineData)
 
     def post(self, request):
-        user = get_user_model().objects.get(username=request.user)
+        user = get_user_model().objects.get(username=request.user,is_plan=True)
         title = request.data['title']
         price = request.data['price']
         date = request.data['date']
@@ -547,7 +556,7 @@ class OtherIncome(APIView):
         return Response(status=status.HTTP_201_CREATED)
 
     def put(self, request):
-        user = get_user_model().objects.get(username=request.user)
+        user = get_user_model().objects.get(username=request.user,is_plan=True)
         id = request.data['id']
         title = request.data['title']
         price = request.data['price']
@@ -563,7 +572,7 @@ class OtherIncome(APIView):
         return Response(status=status.HTTP_201_CREATED)
 
     def delete(self, request):
-        user = get_user_model().objects.get(username=request.user)
+        user = get_user_model().objects.get(username=request.user,is_plan=True)
         id = request.data['id']
         ex = models.OtherIncome.objects.get(user=user, id=id)
         ex.delete()
@@ -571,7 +580,7 @@ class OtherIncome(APIView):
 
 class ProfitAndLoss(APIView):
     def get(self, request, format=None):
-        user = get_user_model().objects.get(username=request.user)
+        user = get_user_model().objects.get(username=request.user,is_plan=True)
 
         d = datetime.now()
 
@@ -611,13 +620,34 @@ class ProfitAndLoss(APIView):
         }
         return Response(CombineData)
 
+from django.utils import timezone
 
 class ProfileAPIView(APIView):
 
     def get(self, request, format=None):
         user = models.User.objects.get(username=request.user)
         s = serializers.ProfileSerializer(user)
-        print(s)
+
+        today = timezone.now()
+        # 2022-11-02 08:33:40+00:00
+        # endd  = datetime.strptime(str(user.end_d),"%Y-%m-%d %H:%M:%S%z")
+        print(today,'Today')
+        endd = user.end_d
+        print(endd,'End Date')
+        print(today>=endd,'COmare Two Date')
+        if today >= endd:
+            print('end Plan')
+            user.is_plan = False 
+            user.save()
+        else:
+            user.is_plan = True
+            user.save()
+
+        print(timezone.get_current_timezone)
+        
+        s = serializers.ProfileSerializer(user)
+
+       
         return Response(s.data)
 
     def post(self, request, format=None):
@@ -647,6 +677,7 @@ class PricingAPIView(APIView):
         data = models.Pricing.objects.all()
         pricing_ser = serializers.PricingSerializer(data, many=True)
         user = get_user_model().objects.get(username=request.user)
+        print(user.is_superuser)
         pr_req_ser={data:{}}
         try:
             pricing_req = models.PricingRequest.objects.filter(user=user,done=False)
@@ -664,29 +695,55 @@ class PricingAPIView(APIView):
     def post(self, request, format=None):
         price_time_type = request.data['type']
         user = get_user_model().objects.get(username=request.user)
-        pricing = models.Pricing.objects.get(title=price_time_type)
+        pricing = models.Pricing.objects.get(id=price_time_type)
         models.PricingRequest.objects.create(user=user, rq_price=pricing)
         
         return Response(status=status.HTTP_201_CREATED)
 
-# Only Super User Can Be Use this View
-class PricingRequestView(APIView):
-    def get(self,request,format=None):
-        pricing_req = models.PricingRequest.objects.all()
-        ser_p_r = serializers.PricingRequestSerializer(pricing_req,many=True)
-
-        return Response(ser_p_r.data)
-    
-    def post(self,request):
-        username = request.data['username']
-        user = get_user_model().objects.get(username=username)
-        pr = models.PricingRequest.objects.get(user=user,done=False)
-        # pr.done = True
-        user.start_d = pr.date
-        user.end_d = pr.date + pr.rq_price.days
-        user.save()
+    def delete(self,request,format=None):
+        price_time_type = request.GET.get('type')
+        user = get_user_model().objects.get(username=request.user)
+        pricing = models.Pricing.objects.get(id=price_time_type)
+        pr_req=  models.PricingRequest.objects.get(user=user, rq_price=pricing,done=False)
+        pr_req.delete()
 
         return Response(status=status.HTTP_201_CREATED)
+
+# Only Super User Can Be Use this View
+
+from datetime import timedelta
+
+class PricingRequestView(APIView):
+
+    def get(self,request,format=None):
+        user = get_user_model().objects.get(username=request.user)
+        if user.is_superuser :
+            pricing_req = models.PricingRequest.objects.all()
+            ser_p_r = serializers.PricingRequestSerializer(pricing_req,many=True)
+
+            return Response(ser_p_r.data)
+        return Response('not access')
+    
+    def post(self,request):
+        handle_user = get_user_model().objects.get(username=request.user)
+        if handle_user.is_superuser:
+            username = request.data['username']
+            rq_id = request.data['rq_id']
+            user = get_user_model().objects.get(username=username)        
+            pr = models.PricingRequest.objects.get(id=rq_id,user=user,done=False)
+            pr.done = True
+            user.is_plan = True
+            start_d = datetime.now()
+            end =start_d + timedelta(days= int(pr.rq_price.days))
+            print(end)
+            user.start_d = start_d #now Date
+            user.end_d = end
+            user.save()
+            pr.save()
+            print(user.start_d)
+
+            return Response(status=status.HTTP_201_CREATED)
+        return Response('not access')
         
 
 class LogoutUserAPIView(APIView):

@@ -13,6 +13,7 @@ class User(AbstractUser):
     email = models.CharField(max_length=255)
 
     address = models.TextField(blank=True, null=True)
+    is_plan = models.BooleanField(default=False)
     start_d = models.DateTimeField(null=True)
     end_d = models.DateTimeField(null=True)
 
@@ -127,15 +128,16 @@ class Pricing(models.Model):
     title = models.CharField(max_length=255)
     price = models.CharField(max_length=30)
     days = models.CharField(max_length=5,null=True)
+    discount = models.CharField(max_length=255,null=True)
     def __str__(self):
         return self.title + ' ' + self.price
 
 
 class PricingRequest(models.Model):
-    user = models.ForeignKey(User, on_delete=models.CASCADE)
-    rq_price = models.ForeignKey(Pricing, on_delete=models.CASCADE)
+    user = models.ForeignKey(User, on_delete=models.CASCADE,related_name='user')
+    rq_price = models.ForeignKey(Pricing, on_delete=models.CASCADE,related_name='rq_price')
     date = models.DateTimeField(auto_now_add=True)
     done = models.BooleanField(default=False)
 
     def __str__(self):
-        return self.user.username + '-' + self.rq_price.price + '-' + self.date
+        return self.user.username + '-' + self.rq_price.price 
