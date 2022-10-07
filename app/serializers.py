@@ -2,6 +2,7 @@ from rest_framework import serializers
 from django.contrib.auth import get_user_model
 from . import models
 
+from django.utils import timezone
 
 class CreateUserSerializer(serializers.ModelSerializer):
     username = serializers.CharField()
@@ -16,6 +17,8 @@ class CreateUserSerializer(serializers.ModelSerializer):
     def create(self, validated_data):
         user = super(CreateUserSerializer, self).create(validated_data)
         user.set_password(validated_data['password'])
+        user.start_d = timezone.now()
+        user.end_d = timezone.now()
         user.save()
 
         return user
