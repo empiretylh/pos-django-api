@@ -66,6 +66,25 @@ class Category(APIView):
         return Response(status=status.HTTP_201_CREATED)
 
 
+from django.core.files import File
+from io import BytesIO
+from PIL import Image
+import os
+def compress_image(image):   
+    im = Image.open(image)
+    size = File(image).size    
+    if size > 0.3*1024*1024:
+        print('Compressing in Progress')
+        if im.mode != 'RGB':
+            im = im.convert('RGB')
+        im_io = BytesIO()
+        im.save(im_io, 'jpeg', quality=10,optimize=True)
+        print('Compressing Completed')
+        new_image = File(im_io, name=image.name)
+        return new_image
+    return image
+
+
 class Product(APIView):
     # permission_classes = [AllowAny]
 
@@ -85,8 +104,14 @@ class Product(APIView):
         category = models.Category.objects.get(id=request.data['category'])
         user = get_user_model().objects.get(username=request.user,is_plan=True)
         pic = request.data['pic']
-        models.Product.objects.create(
-            name=name, user=user, pic=pic, price=price, qty=qty, description=description, category=category)
+        md = models.Product.objects.create(
+            name=name, user=user, pic=pic,price=price, qty=qty, description=description, category=category)
+        
+        if not pic == 'null':
+            md.pic = compress_image(pic)
+            md.save()
+        
+              
         return Response(status=status.HTTP_201_CREATED)
 
     def put(self, request):
@@ -111,7 +136,7 @@ class Product(APIView):
         print(pic)
 
         if not pic == 'null':
-            PRODUCTS.pic = pic
+            PRODUCTS.pic = compress_image(pic)
 
         PRODUCTS.save()
 
@@ -634,7 +659,7 @@ class ProfileAPIView(APIView):
         print(today,'Today')
         endd = user.end_d
         print(endd,'End Date')
-        print(today>=endd,'COmare Two Date')
+        print(today>=endd,'Compare Two Date')
         if today >= endd:
             print('end Plan')
             user.is_plan = False 
@@ -654,7 +679,7 @@ class ProfileAPIView(APIView):
         user = get_user_model().objects.get(username=request.user)
 
         if 'image' in request.data:
-            user.profileimage = request.FILES['image']
+            user.profileimage =compress_image(request.FILES['image'])
             user.save()
             s = serializers.ProfileSerializer(user)
             return Response(s.data)
