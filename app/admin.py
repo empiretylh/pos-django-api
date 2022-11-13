@@ -13,3 +13,14 @@ admin.site.register(models.FeedBack)
 admin.site.register(models.AppVersion)
 admin.site.register(models.Pricing)
 admin.site.register(models.PricingRequest)
+
+
+#Sales Digits App
+
+admin.site.register(models.ThreeDigits)
+admin.site.register(models.TwoDigits)
+admin.site.register(models.ThreeDigitsGroup)
+admin.site.register(models.TwoDigitsGroup)
+
+admin.site.register(models.SalesThreeDigits)
+admin.site.register(models.SalesTwoDigits)

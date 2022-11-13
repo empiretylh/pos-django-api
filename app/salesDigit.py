@@ -1,8 +1,10 @@
+from datetime import timedelta
 import operator
 import functools
 import collections
 from collections import OrderedDict
 from datetime import datetime
+from tkinter import TRUE
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.permissions import AllowAny
@@ -21,18 +23,20 @@ from . import models, serializers
 import json
 
 
-def CHECK_IN_PLAN_AND_RESPONSE(user,data,**args):
-    if  user.is_plan:
+def CHECK_IN_PLAN_AND_RESPONSE(user, data, **args):
+    if user.is_plan:
         return Response('End Plan or No Purchase Plan')
     else:
-        return Response(data=data,**args)
+        return Response(data=data, **args)
 
     print('User is in Plan')
 
+
+# only For Sales Digits user
 class CreateUserApiView(CreateAPIView):
 
     permission_classes = [AllowAny]
-    serializer_class = serializers.CreateUserSerializer
+    serializer_class = serializers.CreateUser_SalesDigit_Serializer
 
     def post(self, request):
         print('posteed')
@@ -52,260 +56,120 @@ class CreateUserApiView(CreateAPIView):
             headers=headers)
 
 
-class Category(APIView):
-    # permission_classes = [AllowAny]
-
-    def get(self, request):
-        user = get_user_model().objects.get(username=request.user)
-        data = models.Category.objects.filter(user=user)
-        s = serializers.CategorySerializer(data, many=True)
-
-        return Response(s.data)
-
-    def post(self, request):
-        user = get_user_model().objects.get(username=request.user)
-        models.Category.objects.create(title=request.data['title'], user=user)
-        return Response(status=status.HTTP_201_CREATED)
-
-
-from django.core.files import File
-from io import BytesIO
-from PIL import Image
-import os
-def compress_image(image):   
-    im = Image.open(image)
-    size = File(image).size    
-    if size > 0.3*1024*1024:
-        print('Compressing in Progress')
-        if im.mode != 'RGB':
-            im = im.convert('RGB')
-        im_io = BytesIO()
-        im.save(im_io, 'jpeg', quality=10,optimize=True)
-        print('Compressing Completed')
-        new_image = File(im_io, name=image.name)
-        return new_image
-    return image
-
-
-class Product(APIView):
-    # permission_classes = [AllowAny]
-
-    def get(self, request):
-        user = get_user_model().objects.get(username=request.user,is_plan=True)
-       
-        data = models.Product.objects.filter(user=user)
-        s = serializers.ProductSerializer(data, many=True)
-        return Response(s.data)
-
-    def post(self, request):
-        name = request.data['name']
-        price = request.data['price']
-        qty = request.data['qty']
-
-        description = request.data['description']
-        category = models.Category.objects.get(id=request.data['category'])
-        user = get_user_model().objects.get(username=request.user,is_plan=True)
-        pic = request.data['pic']
-        md = models.Product.objects.create(
-            name=name, user=user, pic=pic,price=price, qty=qty, description=description, category=category)
-        
-        if not pic == 'null':
-            md.pic = compress_image(pic)
-            md.save()
-        
-              
-        return Response(status=status.HTTP_201_CREATED)
-
-    def put(self, request):
-        id = request.data['id']
-        user = get_user_model().objects.get(username=request.user,is_plan=True)
-        name = request.data['name']
-        price = request.data['price']
-        qty = request.data['qty']
-        pic = request.data['pic']
-
-        description = request.data['description']
-        category = models.Category.objects.get(
-            id=request.data['category'], user=user)
-
-        PRODUCTS = models.Product.objects.get(user=user, id=id)
-        PRODUCTS.name = name
-        PRODUCTS.price = price
-        PRODUCTS.qty = qty
-        # PRODUCTS.date = date
-        PRODUCTS.description = description
-        PRODUCTS.category = category
-        print(pic)
-
-        if not pic == 'null':
-            PRODUCTS.pic = compress_image(pic)
-
-        PRODUCTS.save()
-
-        return Response(status=status.HTTP_201_CREATED)
-
-    def delete(self, request):
-        id = request.data['id']
-        user = get_user_model().objects.get(username=request.user,is_plan=True)
-
-        PRODUCTS = models.Product.objects.get(user=user, id=id)
-        PRODUCTS.delete()
-        return Response(status=status.HTTP_201_CREATED)
-
-
-def yearGenerator(self, data, strftime='%b'):
-    result = {}
-    # monthString = ['0','Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
-    # 2022-09-06 18:50:44.169216+00:00
-
-    for item in data:
-        d = datetime.strptime(str(item.date)[0:19], "%Y-%m-%d %H:%M:%S")
-        month_name = d.strftime(strftime)
-        add_price = float(item.grandtotal) - float(item.tax)
-        result[month_name] = result.get(month_name, 0) + int(add_price)
-
-    return result
-
-
-def monthGenerator(self, data):
-    result = {}
-    # monthString = ['0','Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
-    # 2022-09-06 18:50:44.169216+00:00
-
-    for item in data:
-        d = datetime.strptime(str(item.date)[0:19], "%Y-%m-%d %H:%M:%S")
-        name = d.strftime('%x')
-        result[name] = result.get(name, 0) + int(float(item.grandtotal))
-
-    return result
-
-
-def todayGenerator(self, data):
-    result = {}
-    # monthString = ['0','Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
-    # 2022-09-06 18:50:44.169216+00:00
-
-    for item in data:
-       
-        d = datetime.strptime(str(item.date)[0:19], "%Y-%m-%d %H:%M:%S")
-
-      
-        name = d.strftime('%I:%M %p')
-        result[name] = result.get(name, 0) + int(float(item.grandtotal))
-
-    return result
-
-
-def ChartGenerator(self,data,time):
-    result = {}
-    for item in data:
-        data_d = item['date']
-        print(data_d,'Data D')
-        d = datetime.strptime(str(data_d), '%Y-%m-%dT%H:%M:%S.%f%z')
-
-        print(d)
-        name = d.strftime('%x')
-        if time == 'today':
-            name = d.strftime('%I:%M %p')
-        elif time == 'month':
-            name = d.strftime('%x')
-        elif time == 'year':
-            name = d.strftime('%B')
-        else :
-            name = d.strftime('%x')
-        # print(name)
-        result[name] = result.get(name, 0) + int(float(item['grandtotal']))
-    
-    return result
-
-class Sales(APIView):
+class SalesTwoDigits(APIView):
     # permission_classes = [AllowAny]P
 
     def get(self, request):
-        type = request.GET.get('type')
-        time = request.GET.get('time')
-        user = get_user_model().objects.get(username=request.user,is_plan=True)
-        d = datetime.now()
-        print(d)
-        chartdata = {}
+        user = get_user_model().objects.get(username=request.user,is_plan=True,
+                                            is_salesDigits=True)
+      
+        try:
+            G = models.TwoDigitsGroup.objects.get(user=user, is_done=False)
+        except ObjectDoesNotExist:
+            print('Two Digits Not exists')
+            G = models.TwoDigitsGroup.objects.create(user=user)
+            print('Two Digits Gruop Created')
 
-        if time == 'today':
-            data = models.Sales.objects.filter(user=user, date__year=str(
-                d.year), date__month=str(d.month), date__day=str(d.day))
-            
-        elif time == 'month':
-            data = models.Sales.objects.filter(
-                user=user, date__year=str(d.year), date__month=str(d.month))
-           
-        elif time == 'year':
-            data = models.Sales.objects.filter(
-                user=user, date__year=str(d.year))
-         
-        elif time == 'custom':
-            start_date = request.GET.get('startd')
-            end_date = request.GET.get('endd')
-            sd = datetime.strptime(start_date, "%m/%d/%y")
-            ed = datetime.strptime(
-                end_date, "%m/%d/%y").replace(hour=11, minute=59, second=59)
-            data = models.Sales.objects.filter(user=user, date__range=(sd, ed))
-     
-        else:
-            data = models.Sales.objects.filter(user=user)
+        data = models.SalesTwoDigits.objects.filter(user=user,group=G)
+        ser = serializers.SalesTwoDigitSerializer(data,many=True)
 
-       
-
-        if type == 'DT':
-            s = serializers.DTSalesSerializer(data, many=True)
-        else:
-            s = serializers.SalesSerializer(data, many=True)
-
-        chartdata = ChartGenerator(self,s.data,time)
-
-        # chartdata = todayGenerator(self, s.data)
-        # print(s.data,'\n')
-        # print(data[0].date)
-        # print(chartdata.keys())
-
-        CombineData = {
-            'DATA': s.data,
-            'CHART_LABEL': chartdata.keys(),
-            'CHART_DATA': chartdata.values(),
-            'CHART':chartdata,
-        }
-
-        return Response(CombineData)
+        return Response(ser.data)
 
     def post(self, request):
+        name = request.data['customername']
+        phoneno = request.data['phoneno']
+        digits = request.data['digits']
+        totalamount = request.data['totalamount']
+        print(request.user)
+        user = get_user_model().objects.get(username=request.user,is_plan=True,
+                                            is_salesDigits=True)
+                                
+        try:
+            G = models.TwoDigitsGroup.objects.get(user=user, is_done=False)
+            print('Group Exists')
+        except ObjectDoesNotExist:
+            print('Group Not Exits')
+            G = models.TwoDigitsGroup.objects.create(user=user)
+            print('Group Created')
+        # print(str(name) +'\n')
+        # print(str(phoneno) + '\n')
+        # print(digits)
+        # print(int(totalamount))
 
-        receiptNumber = request.data['receiptNumber']
-        customerName = request.data['customerName']
-        products = request.data['products']
-        totalAmount = request.data['totalAmount']
-        tax = request.data['tax']
-        discount = request.data['discount']
-        grandtotal = request.data['grandtotal']
-        description = request.data['description']
-        # date = request.data['date']
-        user = get_user_model().objects.get(username=request.user,is_plan=True)
-        S = models.Sales.objects.create(user=user, receiptNumber=receiptNumber, customerName=customerName,
-                                        totalAmount=totalAmount, tax=tax, discount=discount, grandtotal=grandtotal, description=description)
+        Sales = models.SalesTwoDigits.objects.create(customername=name,phoneno=phoneno,totalprice=totalamount,user=user,group=G)
 
-        print(products)
-        p = json.loads(products)
-        print(p)
-        for b in p:
-            print(b)
-            product = models.Product.objects.get(id=b['name'], user=user)
-            product.qty = int(product.qty) - int(b['qty'])
-            product.save()
+        print('Sales Objects Created')
 
-            a = models.SoldProduct.objects.create(
-                name=product, price=b['price'], qty=b['qty'], sales=S)
-            print(a)
 
-        S.save()
+        ds = json.loads(digits)
+        # print(p)
+        for d in ds:
+            print(d)
+            d = models.TwoDigits.objects.create(number=d['digits'],amount=d['amount'],user=user,sales=Sales)
+        
+        print('Finished All')
+
+        #     product = models.Product.objects.get(id=b['name'], user=user)
+        #     product.qty = int(product.qty) - int(b['qty'])
+        #     product.save()
+
+        #     a = models.SoldProduct.objects.create(
+        #         name=product, price=b['price'], qty=b['qty'], sales=S)
+        #     print(a)
+
+        # S.save()
 
         return Response(status=status.HTTP_201_CREATED)
+
+class FinishSalesTwoDigits(APIView):
+
+    def get(self,request):
+        user = get_user_model().objects.get(username=request.user,is_plan=True,
+                                     is_salesDigits=True)      
+        dd = request.GET.get('datetime')
+        print(dd)
+        d = datetime.strptime(dd,"%a %b %d %Y")
+        try:            
+            G = models.TwoDigitsGroup.objects.get(user=user,is_done=True,end_datetime__day=str(d.day))        
+        except ObjectDoesNotExist:
+            print('Data Does Not Exit')
+            #0 Means Data Does Not Exit
+            return Response(0)
+      
+        st = models.SalesTwoDigits.objects.filter(group=G)
+        ser = serializers.SalesTwoDigitSerializer(st,many=True)
+
+        return Response(ser.data)
+
+    def post(self,request):
+        user = get_user_model().objects.get(username=request.user,is_plan=True,
+                                            is_salesDigits=True)
+        G = models.TwoDigitsGroup.objects.get(user=user, is_done=False)
+        G.is_done=True
+        G.luckyNumber= request.data['luckynumber']
+        G.end_datetime = request.data['enddate']
+        G.save()
+        return Response(status=status.HTTP_201_CREATED)
+
+
+class FinishAllSalesTwoDigits(APIView):
+
+    def get(self,request):
+        user = get_user_model().objects.get(username=request.user,is_plan=True,
+                                     is_salesDigits=True)      
+               
+        S = ''
+        try:            
+            G = models.TwoDigitsGroup.objects.filter(user=user,is_done=True)
+            S =  serializers.TwoDigitsGroupSerializer(G,many=True)
+        except ObjectDoesNotExist:
+            print('Data Does Not Exit')
+            #0 Means Data Does Not Exit
+            return Response(0)
+      
+    
+
+        return Response(S.data)
 
 
 class SoldProduct(APIView):
@@ -313,7 +177,7 @@ class SoldProduct(APIView):
     def get(self, request):
         rn = request.GET.get['receiptNumber']
 
-        user = get_user_model().objects.get(username=request.user,is_plan=True)
+        user = get_user_model().objects.get(username=request.user, is_plan=True)
         S = models.Sales.objects.get(user=user, receiptNumber=rn)
         seri = serializers.SoldProductSerializer(S.products.all(), many=True)
         return Response(seri.data)
@@ -323,7 +187,7 @@ class TopProductsView(APIView):
 
     def get(self, request):
         time = request.GET.get('time')
-        user = get_user_model().objects.get(username=request.user,is_plan=True)
+        user = get_user_model().objects.get(username=request.user, is_plan=True)
         d = datetime.now()
 
         if time == 'today':
@@ -421,7 +285,7 @@ class Expense(APIView):
     def get(self, request):
         time = request.GET.get('time')
         d = datetime.now()
-        user = get_user_model().objects.get(username=request.user,is_plan=True) 
+        user = get_user_model().objects.get(username=request.user, is_plan=True)
         if time == 'today':
             data = models.Expense.objects.filter(user=user, date__year=str(
                 d.year), date__month=str(d.month), date__day=str(d.day))
@@ -457,7 +321,7 @@ class Expense(APIView):
         return Response(CombineData)
 
     def post(self, request):
-        user = get_user_model().objects.get(username=request.user,is_plan=True)
+        user = get_user_model().objects.get(username=request.user, is_plan=True)
         title = request.data['title']
         price = request.data['price']
         date = request.data['date']
@@ -469,7 +333,7 @@ class Expense(APIView):
         return Response(status=status.HTTP_201_CREATED)
 
     def put(self, request):
-        user = get_user_model().objects.get(username=request.user,is_plan=True)
+        user = get_user_model().objects.get(username=request.user, is_plan=True)
         id = request.data['id']
         title = request.data['title']
         price = request.data['price']
@@ -485,7 +349,7 @@ class Expense(APIView):
         return Response(status=status.HTTP_201_CREATED)
 
     def delete(self, request):
-        user = get_user_model().objects.get(username=request.user,is_plan=True)
+        user = get_user_model().objects.get(username=request.user, is_plan=True)
         id = request.data['id']
         ex = models.Expense.objects.get(user=user, id=id)
         ex.delete()
@@ -495,7 +359,7 @@ class Purchase(APIView):
     def get(self, request):
         time = request.GET.get('time')
         d = datetime.now()
-        user = get_user_model().objects.get(username=request.user,is_plan=True)
+        user = get_user_model().objects.get(username=request.user, is_plan=True)
         data = models.Purchase.objects.filter(user=user)
         if time == 'today':
             data = models.Purchase.objects.filter(user=user, date__year=str(
@@ -531,7 +395,7 @@ class Purchase(APIView):
         return Response(CombineData)
 
     def post(self, request):
-        user = get_user_model().objects.get(username=request.user,is_plan=True)
+        user = get_user_model().objects.get(username=request.user, is_plan=True)
         title = request.data['title']
         price = request.data['price']
         date = request.data['date']
@@ -543,7 +407,7 @@ class Purchase(APIView):
         return Response(status=status.HTTP_201_CREATED)
 
     def put(self, request):
-        user = get_user_model().objects.get(username=request.user,is_plan=True)
+        user = get_user_model().objects.get(username=request.user, is_plan=True)
         id = request.data['id']
         title = request.data['title']
         price = request.data['price']
@@ -567,7 +431,7 @@ class Purchase(APIView):
 
 class OtherIncome(APIView):
     def get(self, request):
-        user = get_user_model().objects.get(username=request.user,is_plan=True)
+        user = get_user_model().objects.get(username=request.user, is_plan=True)
         time = request.GET.get('time')
 
         d = datetime.now()
@@ -607,7 +471,7 @@ class OtherIncome(APIView):
         return Response(CombineData)
 
     def post(self, request):
-        user = get_user_model().objects.get(username=request.user,is_plan=True)
+        user = get_user_model().objects.get(username=request.user, is_plan=True)
         title = request.data['title']
         price = request.data['price']
         date = request.data['date']
@@ -619,7 +483,7 @@ class OtherIncome(APIView):
         return Response(status=status.HTTP_201_CREATED)
 
     def put(self, request):
-        user = get_user_model().objects.get(username=request.user,is_plan=True)
+        user = get_user_model().objects.get(username=request.user, is_plan=True)
         id = request.data['id']
         title = request.data['title']
         price = request.data['price']
@@ -635,7 +499,7 @@ class OtherIncome(APIView):
         return Response(status=status.HTTP_201_CREATED)
 
     def delete(self, request):
-        user = get_user_model().objects.get(username=request.user,is_plan=True)
+        user = get_user_model().objects.get(username=request.user, is_plan=True)
         id = request.data['id']
         ex = models.OtherIncome.objects.get(user=user, id=id)
         ex.delete()
@@ -643,7 +507,7 @@ class OtherIncome(APIView):
 
 class ProfitAndLoss(APIView):
     def get(self, request, format=None):
-        user = get_user_model().objects.get(username=request.user,is_plan=True)
+        user = get_user_model().objects.get(username=request.user, is_plan=True)
 
         d = datetime.now()
 
@@ -679,11 +543,10 @@ class ProfitAndLoss(APIView):
             'addData':  OrderedDict(sorted(addData.items(), key=lambda x: datetime.strptime(x[0], '%B'))),
             'minusData': OrderedDict(sorted(minusData.items(), key=lambda x: datetime.strptime(x[0], '%B'))),
             'result': OrderedDict(sorted(subtractData.items(), key=lambda x: datetime.strptime(x[0], '%B'))),
-           
+
         }
         return Response(CombineData)
 
-from django.utils import timezone
 
 class ProfileAPIView(APIView):
 
@@ -694,30 +557,29 @@ class ProfileAPIView(APIView):
         today = timezone.now()
         # 2022-11-02 08:33:40+00:00
         # endd  = datetime.strptime(str(user.end_d),"%Y-%m-%d %H:%M:%S%z")
-        print(today,'Today')
+        print(today, 'Today')
         endd = user.end_d
-        print(endd,'End Date')
-        print(today>=endd,'Compare Two Date')
+        print(endd, 'End Date')
+        print(today >= endd, 'Compare Two Date')
         if today >= endd:
             print('end Plan')
-            user.is_plan = False 
+            user.is_plan = False
             user.save()
         else:
             user.is_plan = True
             user.save()
 
         print(timezone.get_current_timezone)
-        
+
         s = serializers.ProfileSerializer(user)
 
-       
         return Response(s.data)
 
     def post(self, request, format=None):
         user = get_user_model().objects.get(username=request.user)
 
         if 'image' in request.data:
-            user.profileimage =compress_image(request.FILES['image'])
+            user.profileimage = compress_image(request.FILES['image'])
             user.save()
             s = serializers.ProfileSerializer(user)
             return Response(s.data)
@@ -741,14 +603,16 @@ class PricingAPIView(APIView):
         pricing_ser = serializers.PricingSerializer(data, many=True)
         user = get_user_model().objects.get(username=request.user)
         print(user.is_superuser)
-        pr_req_ser={data:{}}
+        pr_req_ser = {data: {}}
         try:
-            pricing_req = models.PricingRequest.objects.filter(user=user,done=False)
-            pr_req_ser = serializers.PricingRequestSerializer(pricing_req,many=True)
+            pricing_req = models.PricingRequest.objects.filter(
+                user=user, done=False)
+            pr_req_ser = serializers.PricingRequestSerializer(
+                pricing_req, many=True)
         except ObjectDoesNotExist:
             print('Objects Does Not exist')
         CombineData = {
-            'pricing':pricing_ser.data,
+            'pricing': pricing_ser.data,
             'pr_request': pr_req_ser.data
         }
 
@@ -760,46 +624,48 @@ class PricingAPIView(APIView):
         user = get_user_model().objects.get(username=request.user)
         pricing = models.Pricing.objects.get(id=price_time_type)
         models.PricingRequest.objects.create(user=user, rq_price=pricing)
-        
+
         return Response(status=status.HTTP_201_CREATED)
 
-    def delete(self,request,format=None):
+    def delete(self, request, format=None):
         price_time_type = request.GET.get('type')
         user = get_user_model().objects.get(username=request.user)
         pricing = models.Pricing.objects.get(id=price_time_type)
-        pr_req=  models.PricingRequest.objects.get(user=user, rq_price=pricing,done=False)
+        pr_req = models.PricingRequest.objects.get(
+            user=user, rq_price=pricing, done=False)
         pr_req.delete()
 
         return Response(status=status.HTTP_201_CREATED)
 
 # Only Super User Can Be Use this View
 
-from datetime import timedelta
 
 class PricingRequestView(APIView):
 
-    def get(self,request,format=None):
+    def get(self, request, format=None):
         user = get_user_model().objects.get(username=request.user)
-        if user.is_superuser :
+        if user.is_superuser:
             pricing_req = models.PricingRequest.objects.all()
-            ser_p_r = serializers.PricingRequestSerializer(pricing_req,many=True)
+            ser_p_r = serializers.PricingRequestSerializer(
+                pricing_req, many=True)
 
             return Response(ser_p_r.data)
         return Response('not access')
-    
-    def post(self,request):
+
+    def post(self, request):
         handle_user = get_user_model().objects.get(username=request.user)
         if handle_user.is_superuser:
             username = request.data['username']
             rq_id = request.data['rq_id']
-            user = get_user_model().objects.get(username=username)        
-            pr = models.PricingRequest.objects.get(id=rq_id,user=user,done=False)
+            user = get_user_model().objects.get(username=username)
+            pr = models.PricingRequest.objects.get(
+                id=rq_id, user=user, done=False)
             pr.done = True
             user.is_plan = True
             start_d = datetime.now()
-            end =start_d + timedelta(days= int(pr.rq_price.days))
+            end = start_d + timedelta(days=int(pr.rq_price.days))
             print(end)
-            user.start_d = start_d #now Date
+            user.start_d = start_d  # now Date
             user.end_d = end
             user.save()
             pr.save()
@@ -807,7 +673,7 @@ class PricingRequestView(APIView):
 
             return Response(status=status.HTTP_201_CREATED)
         return Response('not access')
-        
+
 
 class LogoutUserAPIView(APIView):
     queryset = get_user_model().objects.all()

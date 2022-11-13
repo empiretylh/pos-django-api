@@ -25,7 +25,7 @@ SECRET_KEY = 'django-insecure-_2kgxo_bxw(dr6c+()%0qz+1w1d!rdcp!j%2k@n0%f5gxj&*ip
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = ['192.168.43.247','10.42.0.1']
+ALLOWED_HOSTS = ['*','localhost:3000','localhost','192.168.43.247:3000','192.168.43.247']
 
 
 #Base url to serve media files
@@ -47,7 +47,22 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'app.apps.AppConfig',
     'rest_framework.authtoken',
-    'rest_framework'
+    'rest_framework',
+    "corsheaders",
+]
+
+CORS_ALLOW_ALL_ORIGINS = True
+
+CORS_ALLOWED_ORIGINS = [
+    "https://example.com",
+    "https://sub.example.com",
+    "http://localhost:8080",
+    "http://localhost:3000",
+    "http://localhost:8080",
+    "http://192.168.43.247:3000",
+    "http://127.0.0.1:9000",
+    
+
 ]
 
 MIDDLEWARE = [
@@ -58,6 +73,8 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+     "corsheaders.middleware.CorsMiddleware",
+    "django.middleware.common.CommonMiddleware",
 ]
 
 ROOT_URLCONF = 'credit.urls'
