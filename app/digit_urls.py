@@ -19,6 +19,15 @@ urlpatterns = [
          name='finish_two_digit'),
           path('sd/api/historytwodigit/', salesDigit.FinishAllSalesTwoDigits.as_view(),
          name='history_two_digit'),
+
+
+
+             path('sd/api/salesthreedigit/', salesDigit.SalesThreeDigits.as_view(),
+         name='sales_three_digit'),
+           path('sd/api/finishthreedigit/', salesDigit.FinishSalesThreeDigits.as_view(),
+         name='finish_three_digit'),
+          path('sd/api/historythreedigit/', salesDigit.FinishAllSalesThreeDigits.as_view(),
+         name='history_three_digit'),
          
 
 #     path('salesthreedigit', salesDigit.SalesTwoDigits.as_view(),

@@ -172,537 +172,120 @@ class FinishAllSalesTwoDigits(APIView):
         return Response(S.data)
 
 
-class SoldProduct(APIView):
+
+# ///////////////////////////////////////////////////Three Digits Data ................................................
+
+class SalesThreeDigits(APIView):
+    # permission_classes = [AllowAny]P
 
     def get(self, request):
-        rn = request.GET.get['receiptNumber']
-
-        user = get_user_model().objects.get(username=request.user, is_plan=True)
-        S = models.Sales.objects.get(user=user, receiptNumber=rn)
-        seri = serializers.SoldProductSerializer(S.products.all(), many=True)
-        return Response(seri.data)
-
-
-class TopProductsView(APIView):
-
-    def get(self, request):
-        time = request.GET.get('time')
-        user = get_user_model().objects.get(username=request.user, is_plan=True)
-        d = datetime.now()
-
-        if time == 'today':
-            data = models.SoldProduct.objects.filter(name__user=user, date__year=str(
-                d.year), date__month=str(d.month), date__day=str(d.day))
-
-        elif time == 'month':
-            data = models.SoldProduct.filter(
-                name__user=user, date__year=str(d.year), date__month=str(d.month))
-
-        elif time == 'year':
-            data = models.SoldProduct.objects.filter(
-                name__user=user, date__year=str(d.year))
-
-        elif time == 'custom':
-            start_date = request.GET.get('startd')
-            end_date = request.GET.get('endd')
-            sd = datetime.strptime(start_date, "%m/%d/%y")
-            ed = datetime.strptime(
-                end_date, "%m/%d/%y").replace(hour=11, minute=59, second=59)
-            data = models.SoldProduct.objects.filter(
-                name__user=user, date__range=(sd, ed))
-
-        else:
-            data = models.SoldProduct.objects.filter(name__user=user)
-
-        topmoneyproduct = {}
-        topfreqsellproduct = {}
-
-        for item in data:
-            topmoneyproduct[item.name.name] = topmoneyproduct.get(
-                item.name.name, 0) + int(float(item.price))
-            topfreqsellproduct[item.name.name] = topfreqsellproduct.get(
-                item.name.name, 0) + 1
-
-        CombineData = {
-            'T_Money': topmoneyproduct,
-            'T_Freq': topfreqsellproduct,
-        }
-
-        return Response(CombineData)
-
-
-def AyearGenerator(self, data, strftime='%b'):
-    result = {}
-    # monthString = ['0','Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
-    # 2022-09-06 18:50:44.169216+00:00
-
-    for item in data:
-        d = datetime.strptime(str(item.date)[0:19], "%Y-%m-%d")
-        month_name = d.strftime(strftime)
-        result[month_name] = result.get(month_name, 0) + int(float(item.price))
-
-    return result
-
-
-def AmonthGenerator(self, data):
-    result = {}
-    # monthString = ['0','Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
-    # 2022-09-06 18:50:44.169216+00:00
-
-    for item in data:
-        d = datetime.strptime(str(item.date)[0:19], "%Y-%m-%d")
-        name = d.strftime('%x')
-        result[name] = result.get(name, 0) + int(float(item.price))
-
-    return result
-
-
-def AtodayGenerator(self, data):
-    result = {}
-    # monthString = ['0','Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
-    # 2022-09-06 18:50:44.169216+00:00
-
-    for item in data:
-        d = datetime.strptime(str(item.date)[0:19], "%Y-%m-%d")
-        name = d.strftime('%I:%M %p')
-        result[name] = result.get(name, 0) + int(float(item.price))
-
-    return result
-
-
-def ChartDataGenerator(self, data, time):
-    if time == 'today':
-        return AtodayGenerator(self, data)
-    elif time == 'month':
-        return AmonthGenerator(self, data)
-    elif time == 'year':
-        return AyearGenerator(self, data)
-    else:
-        return AmonthGenerator(self, data)
-
-
-class Expense(APIView):
-    def get(self, request):
-        time = request.GET.get('time')
-        d = datetime.now()
-        user = get_user_model().objects.get(username=request.user, is_plan=True)
-        if time == 'today':
-            data = models.Expense.objects.filter(user=user, date__year=str(
-                d.year), date__month=str(d.month), date__day=str(d.day))
-            chartdata = ChartDataGenerator(self, data, time)
-        elif time == 'month':
-            data = models.Expense.objects.filter(
-                user=user, date__year=str(d.year), date__month=str(d.month))
-            chartdata = ChartDataGenerator(self, data, time)
-        elif time == 'year':
-            data = models.Expense.objects.filter(
-                user=user, date__year=str(d.year))
-            chartdata = ChartDataGenerator(self, data, time)
-        elif time == 'custom':
-            start_date = request.GET.get('startd')
-            end_date = request.GET.get('endd')
-            sd = datetime.strptime(start_date, "%m/%d/%y")
-            ed = datetime.strptime(
-                end_date, "%m/%d/%y").replace(hour=11, minute=59, second=59)
-            data = models.Expense.objects.filter(
-                user=user, date__range=(sd, ed))
-            chartdata = ChartDataGenerator(self, data, time)
-        else:
-            data = models.Expense.objects.filter(user=user)
-            chartdata = ChartDataGenerator(self, data, time)
-
-        s = serializers.ExpenseSerializer(data, many=True)
-        CombineData = {
-            'DATA': s.data,
-            'CHART_LABEL': chartdata.keys(),
-            'CHART_DATA': chartdata.values(),
-        }
-
-        return Response(CombineData)
-
-    def post(self, request):
-        user = get_user_model().objects.get(username=request.user, is_plan=True)
-        title = request.data['title']
-        price = request.data['price']
-        date = request.data['date']
-        description = request.data['description']
-
-        ex = models.Expense.objects.create(
-            date=date, user=user, description=description, title=title, price=price)
-
-        return Response(status=status.HTTP_201_CREATED)
-
-    def put(self, request):
-        user = get_user_model().objects.get(username=request.user, is_plan=True)
-        id = request.data['id']
-        title = request.data['title']
-        price = request.data['price']
-        date = request.data['date']
-        description = request.data['description']
-
-        ex = models.Expense.objects.get(user=user, id=id)
-        ex.title = title
-        ex.price = price
-        ex.description = description
-        ex.date = ex.date
-        ex.save()
-        return Response(status=status.HTTP_201_CREATED)
-
-    def delete(self, request):
-        user = get_user_model().objects.get(username=request.user, is_plan=True)
-        id = request.data['id']
-        ex = models.Expense.objects.get(user=user, id=id)
-        ex.delete()
-
-
-class Purchase(APIView):
-    def get(self, request):
-        time = request.GET.get('time')
-        d = datetime.now()
-        user = get_user_model().objects.get(username=request.user, is_plan=True)
-        data = models.Purchase.objects.filter(user=user)
-        if time == 'today':
-            data = models.Purchase.objects.filter(user=user, date__year=str(
-                d.year), date__month=str(d.month), date__day=str(d.day))
-            chartdata = ChartDataGenerator(self, data, time)
-        elif time == 'month':
-            data = models.Purchase.objects.filter(
-                user=user, date__year=str(d.year), date__month=str(d.month))
-            chartdata = ChartDataGenerator(self, data, time)
-        elif time == 'year':
-            data = models.Purchase.objects.filter(
-                user=user, date__year=str(d.year))
-            chartdata = ChartDataGenerator(self, data, time)
-        elif time == 'custom':
-            start_date = request.GET.get('startd')
-            end_date = request.GET.get('endd')
-            sd = datetime.strptime(start_date, "%m/%d/%y")
-            ed = datetime.strptime(
-                end_date, "%m/%d/%y").replace(hour=11, minute=59, second=59)
-            data = models.Purchase.objects.filter(
-                user=user, date__range=(sd, ed))
-            chartdata = ChartDataGenerator(self, data, time)
-        else:
-            data = models.Purchase.objects.filter(user=user)
-            chartdata = ChartDataGenerator(self, data, time)
-        s = serializers.PurchaseSerializer(data, many=True)
-        CombineData = {
-            'DATA': s.data,
-            'CHART_LABEL': chartdata.keys(),
-            'CHART_DATA': chartdata.values(),
-        }
-
-        return Response(CombineData)
-
-    def post(self, request):
-        user = get_user_model().objects.get(username=request.user, is_plan=True)
-        title = request.data['title']
-        price = request.data['price']
-        date = request.data['date']
-        description = request.data['description']
-
-        ex = models.Purchase.objects.create(
-            date=date, user=user, description=description, title=title, price=price)
-
-        return Response(status=status.HTTP_201_CREATED)
-
-    def put(self, request):
-        user = get_user_model().objects.get(username=request.user, is_plan=True)
-        id = request.data['id']
-        title = request.data['title']
-        price = request.data['price']
-        date = request.data['date']
-        description = request.data['description']
-
-        ex = models.Purchase.objects.get(user=user, id=id)
-        ex.title = title
-        ex.price = price
-        ex.description = description
-        ex.date = ex.date
-        ex.save()
-        return Response(status=status.HTTP_201_CREATED)
-
-    def delete(self, request):
-        user = get_user_model().objects.get(username=request.user)
-        id = request.data['id']
-        ex = models.Purchase.objects.get(user=user, id=id)
-        ex.delete()
-
-
-class OtherIncome(APIView):
-    def get(self, request):
-        user = get_user_model().objects.get(username=request.user, is_plan=True)
-        time = request.GET.get('time')
-
-        d = datetime.now()
-
-        if time == 'today':
-            data = models.OtherIncome.objects.filter(user=user, date__year=str(
-                d.year), date__month=str(d.month), date__day=str(d.day))
-            chartdata = ChartDataGenerator(self, data, time)
-        elif time == 'month':
-            data = models.OtherIncome.objects.filter(
-                user=user, date__year=str(d.year), date__month=str(d.month))
-            chartdata = ChartDataGenerator(self, data, time)
-        elif time == 'year':
-            data = models.OtherIncome.objects.filter(
-                user=user, date__year=str(d.year))
-            chartdata = ChartDataGenerator(self, data, time)
-        elif time == 'custom':
-            start_date = request.GET.get('startd')
-            end_date = request.GET.get('endd')
-            sd = datetime.strptime(start_date, "%m/%d/%y")
-            ed = datetime.strptime(
-                end_date, "%m/%d/%y").replace(hour=11, minute=59, second=59)
-            data = models.OtherIncome.objects.filter(
-                user=user, date__range=(sd, ed))
-            chartdata = ChartDataGenerator(self, data, time)
-        else:
-            data = models.OtherIncome.objects.filter(user=user)
-            chartdata = ChartDataGenerator(self, data, time)
-
-        s = serializers.OtherIncomeSerializer(data, many=True)
-        CombineData = {
-            'DATA': s.data,
-            'CHART_LABEL': chartdata.keys(),
-            'CHART_DATA': chartdata.values(),
-        }
-
-        return Response(CombineData)
-
-    def post(self, request):
-        user = get_user_model().objects.get(username=request.user, is_plan=True)
-        title = request.data['title']
-        price = request.data['price']
-        date = request.data['date']
-        description = request.data['description']
-
-        ex = models.OtherIncome.objects.create(
-            date=date, user=user, description=description, title=title, price=price)
-
-        return Response(status=status.HTTP_201_CREATED)
-
-    def put(self, request):
-        user = get_user_model().objects.get(username=request.user, is_plan=True)
-        id = request.data['id']
-        title = request.data['title']
-        price = request.data['price']
-        date = request.data['date']
-        description = request.data['description']
-
-        ex = models.OtherIncome.objects.get(user=user, id=id)
-        ex.title = title
-        ex.price = price
-        ex.description = description
-        ex.date = ex.date
-        ex.save()
-        return Response(status=status.HTTP_201_CREATED)
-
-    def delete(self, request):
-        user = get_user_model().objects.get(username=request.user, is_plan=True)
-        id = request.data['id']
-        ex = models.OtherIncome.objects.get(user=user, id=id)
-        ex.delete()
-
-
-class ProfitAndLoss(APIView):
-    def get(self, request, format=None):
-        user = get_user_model().objects.get(username=request.user, is_plan=True)
-
-        d = datetime.now()
-
-        otherincome_data = models.OtherIncome.objects.filter(
-            user=user, date__year=str(d.year))
-        sales_data = models.Sales.objects.filter(
-            user=user, date__year=str(d.year))
-        expense_data = models.Expense.objects.filter(
-            user=user, date__year=str(d.year))
-        purchase_data = models.Purchase.objects.filter(
-            user=user, date__year=str(d.year))
-
-        sales_ge = yearGenerator(self, sales_data, '%B')
-        otherincome_ge = AyearGenerator(self, otherincome_data, '%B')
-        expense_ge = AyearGenerator(self, expense_data, '%B')
-        purchase_ge = AyearGenerator(self, purchase_data, '%B')
-
-        addData = {k: sales_ge.get(k, 0) + otherincome_ge.get(k, 0)
-                   for k in set(sales_ge) | set(otherincome_ge)}
-        minusData = {k: expense_ge.get(k, 0) + purchase_ge.get(k, 0)
-                     for k in set(expense_ge) | set(purchase_ge)}
-        subtractData = {k: addData.get(k, 0) - minusData.get(k, 0)
-                        for k in set(addData) | set(minusData)}
-
-        print(sales_ge)
-
-        # print(addData,minusData,subtractData)
-        ordered_data = sorted(
-            addData.items(), key=lambda x: datetime.strptime(x[0], '%B'))
-        print(ordered_data)
-
-        CombineData = {
-            'addData':  OrderedDict(sorted(addData.items(), key=lambda x: datetime.strptime(x[0], '%B'))),
-            'minusData': OrderedDict(sorted(minusData.items(), key=lambda x: datetime.strptime(x[0], '%B'))),
-            'result': OrderedDict(sorted(subtractData.items(), key=lambda x: datetime.strptime(x[0], '%B'))),
-
-        }
-        return Response(CombineData)
-
-
-class ProfileAPIView(APIView):
-
-    def get(self, request, format=None):
-        user = models.User.objects.get(username=request.user)
-        s = serializers.ProfileSerializer(user)
-
-        today = timezone.now()
-        # 2022-11-02 08:33:40+00:00
-        # endd  = datetime.strptime(str(user.end_d),"%Y-%m-%d %H:%M:%S%z")
-        print(today, 'Today')
-        endd = user.end_d
-        print(endd, 'End Date')
-        print(today >= endd, 'Compare Two Date')
-        if today >= endd:
-            print('end Plan')
-            user.is_plan = False
-            user.save()
-        else:
-            user.is_plan = True
-            user.save()
-
-        print(timezone.get_current_timezone)
-
-        s = serializers.ProfileSerializer(user)
-
-        return Response(s.data)
-
-    def post(self, request, format=None):
-        user = get_user_model().objects.get(username=request.user)
-
-        if 'image' in request.data:
-            user.profileimage = compress_image(request.FILES['image'])
-            user.save()
-            s = serializers.ProfileSerializer(user)
-            return Response(s.data)
-        s = serializers.ProfileSerializer(user)
-        return Response(s.data)
-
-
-class FeedBackAPIView(APIView):
-
-    def post(self, request, format=None):
-        message = request.data['message']
-
-        models.FeedBack.objects.create(user=request.user, message=message)
-
-        return Response(status=status.HTTP_201_CREATED)
-
-
-class PricingAPIView(APIView):
-    def get(self, request, format=None):
-        data = models.Pricing.objects.all()
-        pricing_ser = serializers.PricingSerializer(data, many=True)
-        user = get_user_model().objects.get(username=request.user)
-        print(user.is_superuser)
-        pr_req_ser = {data: {}}
+        user = get_user_model().objects.get(username=request.user,is_plan=True,
+                                            is_salesDigits=True)
+      
         try:
-            pricing_req = models.PricingRequest.objects.filter(
-                user=user, done=False)
-            pr_req_ser = serializers.PricingRequestSerializer(
-                pricing_req, many=True)
+            G = models.ThreeDigitsGroup.objects.get(user=user, is_done=False)
         except ObjectDoesNotExist:
-            print('Objects Does Not exist')
-        CombineData = {
-            'pricing': pricing_ser.data,
-            'pr_request': pr_req_ser.data
-        }
+            print('Three Digits Not exists')
+            G = models.ThreeDigitsGroup.objects.create(user=user)
+            print('Three Digits Gruop Created')
 
-        return Response(CombineData)
+        data = models.SalesThreeDigits.objects.filter(user=user,group=G)
+        ser = serializers.SalesThreeDigitSerializer(data,many=True)
 
-    # It Is Main Buy SOftware not adding Pricing method check this code
-    def post(self, request, format=None):
-        price_time_type = request.data['type']
-        user = get_user_model().objects.get(username=request.user)
-        pricing = models.Pricing.objects.get(id=price_time_type)
-        models.PricingRequest.objects.create(user=user, rq_price=pricing)
-
-        return Response(status=status.HTTP_201_CREATED)
-
-    def delete(self, request, format=None):
-        price_time_type = request.GET.get('type')
-        user = get_user_model().objects.get(username=request.user)
-        pricing = models.Pricing.objects.get(id=price_time_type)
-        pr_req = models.PricingRequest.objects.get(
-            user=user, rq_price=pricing, done=False)
-        pr_req.delete()
-
-        return Response(status=status.HTTP_201_CREATED)
-
-# Only Super User Can Be Use this View
-
-
-class PricingRequestView(APIView):
-
-    def get(self, request, format=None):
-        user = get_user_model().objects.get(username=request.user)
-        if user.is_superuser:
-            pricing_req = models.PricingRequest.objects.all()
-            ser_p_r = serializers.PricingRequestSerializer(
-                pricing_req, many=True)
-
-            return Response(ser_p_r.data)
-        return Response('not access')
+        return Response(ser.data)
 
     def post(self, request):
-        handle_user = get_user_model().objects.get(username=request.user)
-        if handle_user.is_superuser:
-            username = request.data['username']
-            rq_id = request.data['rq_id']
-            user = get_user_model().objects.get(username=username)
-            pr = models.PricingRequest.objects.get(
-                id=rq_id, user=user, done=False)
-            pr.done = True
-            user.is_plan = True
-            start_d = datetime.now()
-            end = start_d + timedelta(days=int(pr.rq_price.days))
-            print(end)
-            user.start_d = start_d  # now Date
-            user.end_d = end
-            user.save()
-            pr.save()
-            print(user.start_d)
-
-            return Response(status=status.HTTP_201_CREATED)
-        return Response('not access')
-
-
-class LogoutUserAPIView(APIView):
-    queryset = get_user_model().objects.all()
-
-    def get(self, request, format=None):
-        request.user.auth_token.delete()
-        return Response(status=status.HTTP_200_OK)
-
-
-class LoginWithFacebook(CreateAPIView):
-    permission_classes = [AllowAny]
-    serializer_class = serializers.CreateUserSerializer
-
-    def post(self, request):
-
+        name = request.data['customername']
+        phoneno = request.data['phoneno']
+        digits = request.data['digits']
+        totalamount = request.data['totalamount']
+        print(request.user)
+        user = get_user_model().objects.get(username=request.user,is_plan=True,
+                                            is_salesDigits=True)
+                                
         try:
-            username = request.data['username']
-            print(username)
-            user = models.User.objects.get(username=username)
-            print(user)
-            token = Token.objects.get(user=user)
-            token_data = {'token': token.key}
-            return Response({**token_data}, status=status.HTTP_201_CREATED)
+            G = models.ThreeDigitsGroup.objects.get(user=user, is_done=False)
+            print('Group Exists')
         except ObjectDoesNotExist:
-            serializers = self.get_serializer(data=request.data)
-            serializers.is_valid(raise_exception=True)
-            self.perform_create(serializers)
+            print('Group Not Exits')
+            G = models.ThreeDigitsGroup.objects.create(user=user)
+            print('Group Created')
+        # print(str(name) +'\n')
+        # print(str(phoneno) + '\n')
+        # print(digits)
+        # print(int(totalamount))
 
-            token = Token.objects.create(user=serializers.instance)
-            token_data = {'token': token.key}
+        Sales = models.SalesThreeDigits.objects.create(customername=name,phoneno=phoneno,totalprice=totalamount,user=user,group=G)
 
-            return Response({**token_data}, status=status.HTTP_201_CREATED)
+        print('Sales Objects Created')
+
+
+        ds = json.loads(digits)
+        # print(p)
+        for d in ds:
+            print(d)
+            d = models.ThreeDigits.objects.create(number=d['digits'],amount=d['amount'],user=user,sales=Sales)
+        
+        print('Finished All')
+
+        #     product = models.Product.objects.get(id=b['name'], user=user)
+        #     product.qty = int(product.qty) - int(b['qty'])
+        #     product.save()
+
+        #     a = models.SoldProduct.objects.create(
+        #         name=product, price=b['price'], qty=b['qty'], sales=S)
+        #     print(a)
+
+        # S.save()
+
+        return Response(status=status.HTTP_201_CREATED)
+
+class FinishSalesThreeDigits(APIView):
+
+    def get(self,request):
+        user = get_user_model().objects.get(username=request.user,is_plan=True,
+                                     is_salesDigits=True)      
+        dd = request.GET.get('datetime')
+        print(dd)
+        d = datetime.strptime(dd,"%a %b %d %Y")
+        try:            
+            G = models.ThreeDigitsGroup.objects.get(user=user,is_done=True,end_datetime__day=str(d.day))        
+        except ObjectDoesNotExist:
+            print('Data Does Not Exit')
+            #0 Means Data Does Not Exit
+            return Response(0)
+      
+        st = models.SalesThreeDigits.objects.filter(group=G)
+        ser = serializers.SalesThreeDigitSerializer(st,many=True)
+
+        return Response(ser.data)
+
+    def post(self,request):
+        user = get_user_model().objects.get(username=request.user,is_plan=True,
+                                            is_salesDigits=True)
+        G = models.ThreeDigitsGroup.objects.get(user=user, is_done=False)
+        G.is_done=True
+        G.luckyNumber= request.data['luckynumber']
+        G.end_datetime = request.data['enddate']
+        G.save()
+        return Response(status=status.HTTP_201_CREATED)
+
+
+class FinishAllSalesThreeDigits(APIView):
+
+    def get(self,request):
+        user = get_user_model().objects.get(username=request.user,is_plan=True,
+                                     is_salesDigits=True)      
+               
+        S = ''
+        try:            
+            G = models.ThreeDigitsGroup.objects.filter(user=user,is_done=True)
+            S =  serializers.ThreeDigitsGroupSerializer(G,many=True)
+        except ObjectDoesNotExist:
+            print('Data Does Not Exit')
+            #0 Means Data Does Not Exit
+            return Response(0)
+      
+    
+
+        return Response(S.data)

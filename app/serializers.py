@@ -153,3 +153,28 @@ class SalesTwoDigitSerializer(serializers.ModelSerializer):
     class Meta:
         model = models.SalesTwoDigits
         fields = ['id','customername','phoneno','datetime','totalprice','two_sales_digits','luckyNumber_two']
+
+
+
+class ThreeDigitsSerializer(serializers.ModelSerializer):
+
+    class Meta:
+        model = models.ThreeDigits
+        fields = ['id','number','amount']
+
+
+class ThreeDigitsGroupSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = models.ThreeDigitsGroup
+        fields = ['id','start_datetime','luckyNumber','end_datetime']
+
+
+class SalesThreeDigitSerializer(serializers.ModelSerializer):
+
+    three_sales_digits = ThreeDigitsSerializer(many=True, read_only=True)
+    # sales_two_group = TwoDigitsGroupSerializer(many=True,read_only=True)
+    luckyNumber_three = serializers.CharField(source='group.luckyNumber')
+
+    class Meta:
+        model = models.SalesThreeDigits
+        fields = ['id','customername','phoneno','datetime','totalprice','three_sales_digits','luckyNumber_three']
