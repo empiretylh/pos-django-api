@@ -120,7 +120,7 @@ class AppVersionSerializer(serializers.ModelSerializer):
 class PricingSerializer(serializers.ModelSerializer):
     class Meta:
         model = models.Pricing
-        fields = ['id','title', 'price','days','discount']
+        fields = ['id','title', 'price','days','discount','is_digits']
 
 
 class PricingRequestSerializer(serializers.ModelSerializer):
@@ -128,7 +128,7 @@ class PricingRequestSerializer(serializers.ModelSerializer):
     rq_price = PricingSerializer(read_only=True)
     class Meta:
         model = models.PricingRequest
-        fields = ['id','user','rq_price', 'date','done',]
+        fields = ['id','user','rq_price', 'date','done']
 
 
 class TwoDigitsSerializer(serializers.ModelSerializer):
@@ -141,7 +141,7 @@ class TwoDigitsSerializer(serializers.ModelSerializer):
 class TwoDigitsGroupSerializer(serializers.ModelSerializer):
     class Meta:
         model = models.TwoDigitsGroup
-        fields = ['id','start_datetime','luckyNumber','end_datetime']
+        fields = ['id','start_datetime','luckyNumber','end_datetime','time']
 
 
 class SalesTwoDigitSerializer(serializers.ModelSerializer):
@@ -149,6 +149,8 @@ class SalesTwoDigitSerializer(serializers.ModelSerializer):
     two_sales_digits = TwoDigitsSerializer(many=True, read_only=True)
     # sales_two_group = TwoDigitsGroupSerializer(many=True,read_only=True)
     luckyNumber_two = serializers.CharField(source='group.luckyNumber')
+    #time    = serializers.CharField(source='group.time')
+    
 
     class Meta:
         model = models.SalesTwoDigits

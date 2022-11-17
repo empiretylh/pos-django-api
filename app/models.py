@@ -136,7 +136,7 @@ class Pricing(models.Model):
     price = models.CharField(max_length=30)
     days = models.CharField(max_length=5, null=True)
     discount = models.CharField(max_length=255, null=True)
-
+    is_digits = models.BooleanField(default=False)
     def __str__(self):
         return self.title + ' ' + self.price
 
@@ -173,16 +173,18 @@ class ThreeDigitsGroup(models.Model):
 
 
 
+
 class TwoDigitsGroup(models.Model):
     user = models.ForeignKey(
         User, on_delete=models.CASCADE, related_name='user_twodigits')
+    time = models.CharField(max_length=10,default='m')
     start_datetime = models.DateTimeField(auto_now_add=True)
     luckyNumber = models.CharField(max_length=2, null=True)
     is_done = models.BooleanField(default=False)
     end_datetime = models.DateTimeField(null=True)
 
     def __str__(self):
-        return self.user.username + ' '+ showdate(self)
+        return self.user.username + ' '+ showdate(self) + ' ' + self.time
 
 
 

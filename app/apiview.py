@@ -737,7 +737,7 @@ class FeedBackAPIView(APIView):
 
 class PricingAPIView(APIView):
     def get(self, request, format=None):
-        data = models.Pricing.objects.all()
+        data = models.Pricing.objects.filter(is_digits=False)
         pricing_ser = serializers.PricingSerializer(data, many=True)
         user = get_user_model().objects.get(username=request.user)
         print(user.is_superuser)
@@ -758,7 +758,7 @@ class PricingAPIView(APIView):
     def post(self, request, format=None):
         price_time_type = request.data['type']
         user = get_user_model().objects.get(username=request.user)
-        pricing = models.Pricing.objects.get(id=price_time_type)
+        pricing = models.Pricing.objects.get(id=price_time_type,is_digits=False)
         models.PricingRequest.objects.create(user=user, rq_price=pricing)
         
         return Response(status=status.HTTP_201_CREATED)
@@ -766,7 +766,7 @@ class PricingAPIView(APIView):
     def delete(self,request,format=None):
         price_time_type = request.GET.get('type')
         user = get_user_model().objects.get(username=request.user)
-        pricing = models.Pricing.objects.get(id=price_time_type)
+        pricing = models.Pricing.objects.get(id=price_time_type,is_digits=False)
         pr_req=  models.PricingRequest.objects.get(user=user, rq_price=pricing,done=False)
         pr_req.delete()
 

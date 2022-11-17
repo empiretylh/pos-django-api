@@ -63,11 +63,22 @@ class SalesTwoDigits(APIView):
                                             is_salesDigits=True)
       
         try:
-            G = models.TwoDigitsGroup.objects.get(user=user, is_done=False)
+            G = models.TwoDigitsGroup.objects.get(user=user, is_done=False,time='m')          
+            print('Group M Exists')
         except ObjectDoesNotExist:
-            print('Two Digits Not exists')
-            G = models.TwoDigitsGroup.objects.create(user=user)
-            print('Two Digits Gruop Created')
+            print('Group M Not Exits')
+            G = models.TwoDigitsGroup.objects.create(user=user,time='m')
+            print('Group M Created')
+
+
+        try:
+            G1 = models.TwoDigitsGroup.objects.get(user=user, is_done=False,time='e')          
+            print('Group E Exists')
+        except ObjectDoesNotExist:
+            print('Group E Not Exits')
+            G1 = models.TwoDigitsGroup.objects.create(user=user,time='e')
+            print('Group E Created')
+
 
         data = models.SalesTwoDigits.objects.filter(user=user,group=G)
         ser = serializers.SalesTwoDigitSerializer(data,many=True)
@@ -84,18 +95,30 @@ class SalesTwoDigits(APIView):
                                             is_salesDigits=True)
                                 
         try:
-            G = models.TwoDigitsGroup.objects.get(user=user, is_done=False)
-            print('Group Exists')
+            G = models.TwoDigitsGroup.objects.get(user=user, is_done=False,time='m')          
+            print('Group M Exists')
         except ObjectDoesNotExist:
-            print('Group Not Exits')
-            G = models.TwoDigitsGroup.objects.create(user=user)
-            print('Group Created')
+            print('Group M Not Exits')
+            G = models.TwoDigitsGroup.objects.create(user=user,time='m')
+            print('Group M Created')
+
+
+        try:
+            G1 = models.TwoDigitsGroup.objects.get(user=user, is_done=False,time='e')          
+            print('Group E Exists')
+        except ObjectDoesNotExist:
+            print('Group E Not Exits')
+            G1 = models.TwoDigitsGroup.objects.create(user=user,time='e')
+            print('Group M Created')
+
+
         # print(str(name) +'\n')
         # print(str(phoneno) + '\n')
         # print(digits)
         # print(int(totalamount))
 
         Sales = models.SalesTwoDigits.objects.create(customername=name,phoneno=phoneno,totalprice=totalamount,user=user,group=G)
+        Sales1 = models.SalesTwoDigits.objects.create(customername=name,phoneno=phoneno,totalprice=totalamount,user=user,group=G1)
 
         print('Sales Objects Created')
 
@@ -104,8 +127,11 @@ class SalesTwoDigits(APIView):
         # print(p)
         for d in ds:
             print(d)
-            d = models.TwoDigits.objects.create(number=d['digits'],amount=d['amount'],user=user,sales=Sales)
-        
+            d1 = models.TwoDigits.objects.create(number=d['digits'],amount=d['amount'],user=user,sales=Sales)
+            print('D1 Create')
+            d2 = models.TwoDigits.objects.create(number=d['digits'],amount=d['amount'],user=user,sales=Sales1)
+            print('D2 Create')
+
         print('Finished All')
 
         #     product = models.Product.objects.get(id=b['name'], user=user)
@@ -120,21 +146,59 @@ class SalesTwoDigits(APIView):
 
         return Response(status=status.HTTP_201_CREATED)
 
+class Check_MORE_TWODIGITS(APIView):
+    def get(self,request):
+        user = get_user_model().objects.get(username=request.user,is_plan=True,
+                                     is_salesDigits=True)   
+           
+        dd = request.GET.get('datetime')
+        print(dd)
+        d = datetime.strptime(dd,"%a %b %d %Y")
+       
+
+        contain = []
+
+        try:            
+            G = models.TwoDigitsGroup.objects.get(user=user,is_done=True,end_datetime__day=str(d.day),time='m')    
+            contain.append(G.luckyNumber)    
+            print('M True Exist')
+        except ObjectDoesNotExist:
+            print('Data M Not Exit')
+            #0 Means Data Does Not Exit
+            contain.append(0)
+
+        try:            
+            G1 = models.TwoDigitsGroup.objects.get(user=user,is_done=True,end_datetime__day=str(d.day),time='e')    
+            contain.append(G1.luckyNumber)    
+            print('E True Exist')
+        except ObjectDoesNotExist:
+            print('Data M Not Exit')
+            #0 Means Data Does Not Exit
+            contain.append(0)
+
+        
+        return Response(contain)
+
+
 class FinishSalesTwoDigits(APIView):
 
     def get(self,request):
         user = get_user_model().objects.get(username=request.user,is_plan=True,
-                                     is_salesDigits=True)      
+                                     is_salesDigits=True)   
+           
         dd = request.GET.get('datetime')
+        time = request.GET.get('time')
         print(dd)
-        d = datetime.strptime(dd,"%a %b %d %Y")
+        d = datetime.strptime(dd,"%a %b %d %Y")      
+      
         try:            
-            G = models.TwoDigitsGroup.objects.get(user=user,is_done=True,end_datetime__day=str(d.day))        
+            G = models.TwoDigitsGroup.objects.get(user=user,is_done=True,end_datetime__day=str(d.day),time=time)    
+           
         except ObjectDoesNotExist:
             print('Data Does Not Exit')
             #0 Means Data Does Not Exit
             return Response(0)
-      
+
         st = models.SalesTwoDigits.objects.filter(group=G)
         ser = serializers.SalesTwoDigitSerializer(st,many=True)
 
@@ -143,7 +207,8 @@ class FinishSalesTwoDigits(APIView):
     def post(self,request):
         user = get_user_model().objects.get(username=request.user,is_plan=True,
                                             is_salesDigits=True)
-        G = models.TwoDigitsGroup.objects.get(user=user, is_done=False)
+        time = request.data['time']
+        G = models.TwoDigitsGroup.objects.get(user=user, is_done=False,time=time)
         G.is_done=True
         G.luckyNumber= request.data['luckynumber']
         G.end_datetime = request.data['enddate']
@@ -180,6 +245,7 @@ class SalesThreeDigits(APIView):
     def get(self, request):
         user = get_user_model().objects.get(username=request.user,is_plan=True,
                                             is_salesDigits=True)
+                                            
       
         try:
             G = models.ThreeDigitsGroup.objects.get(user=user, is_done=False)
@@ -245,10 +311,11 @@ class FinishSalesThreeDigits(APIView):
         user = get_user_model().objects.get(username=request.user,is_plan=True,
                                      is_salesDigits=True)      
         dd = request.GET.get('datetime')
-        print(dd)
+       
+        print(dd) 
         d = datetime.strptime(dd,"%a %b %d %Y")
         try:            
-            G = models.ThreeDigitsGroup.objects.get(user=user,is_done=True,end_datetime__day=str(d.day))        
+            G = models.ThreeDigitsGroup.objects.get(user=user,is_done=True,end_datetime__day=str(d.day),time=time)        
         except ObjectDoesNotExist:
             print('Data Does Not Exit')
             #0 Means Data Does Not Exit
@@ -262,6 +329,7 @@ class FinishSalesThreeDigits(APIView):
     def post(self,request):
         user = get_user_model().objects.get(username=request.user,is_plan=True,
                                             is_salesDigits=True)
+       
         G = models.ThreeDigitsGroup.objects.get(user=user, is_done=False)
         G.is_done=True
         G.luckyNumber= request.data['luckynumber']
@@ -288,3 +356,43 @@ class FinishAllSalesThreeDigits(APIView):
     
 
         return Response(S.data)
+
+
+
+
+class PricingAPIView(APIView):
+    def get(self, request, format=None):
+        data = models.Pricing.objects.filter(is_digits=True)
+        pricing_ser = serializers.PricingSerializer(data, many=True)
+        user = get_user_model().objects.get(username=request.user)
+        print(user.is_superuser)
+        pr_req_ser={data:{}}
+        try:
+            pricing_req = models.PricingRequest.objects.filter(user=user,done=False)
+            pr_req_ser = serializers.PricingRequestSerializer(pricing_req,many=True)
+        except ObjectDoesNotExist:
+            print('Objects Does Not exist')
+        CombineData = {
+            'pricing':pricing_ser.data,
+            'pr_request': pr_req_ser.data
+        }
+
+        return Response(CombineData)
+
+    # It Is Main Buy SOftware not adding Pricing method check this code
+    def post(self, request, format=None):
+        price_time_type = request.data['type']
+        user = get_user_model().objects.get(username=request.user)
+        pricing = models.Pricing.objects.get(id=price_time_type,is_digits=True)
+        models.PricingRequest.objects.create(user=user, rq_price=pricing)
+        
+        return Response(status=status.HTTP_201_CREATED)
+
+    def delete(self,request,format=None):
+        price_time_type = request.GET.get('type')
+        user = get_user_model().objects.get(username=request.user)
+        pricing = models.Pricing.objects.get(id=price_time_type,is_digits=True)
+        pr_req=  models.PricingRequest.objects.get(user=user,done=False)
+        pr_req.delete()
+
+        return Response(status=status.HTTP_201_CREATED)
