@@ -63,21 +63,12 @@ class SalesTwoDigits(APIView):
                                             is_salesDigits=True)
       
         try:
-            G = models.TwoDigitsGroup.objects.get(user=user, is_done=False,time='m')          
+            G = models.TwoDigitsGroup.objects.get(user=user, is_done=False)          
             print('Group M Exists')
         except ObjectDoesNotExist:
             print('Group M Not Exits')
-            G = models.TwoDigitsGroup.objects.create(user=user,time='m')
+            G = models.TwoDigitsGroup.objects.create(user=user)
             print('Group M Created')
-
-
-        try:
-            G1 = models.TwoDigitsGroup.objects.get(user=user, is_done=False,time='e')          
-            print('Group E Exists')
-        except ObjectDoesNotExist:
-            print('Group E Not Exits')
-            G1 = models.TwoDigitsGroup.objects.create(user=user,time='e')
-            print('Group E Created')
 
 
         data = models.SalesTwoDigits.objects.filter(user=user,group=G)
@@ -95,20 +86,11 @@ class SalesTwoDigits(APIView):
                                             is_salesDigits=True)
                                 
         try:
-            G = models.TwoDigitsGroup.objects.get(user=user, is_done=False,time='m')          
+            G = models.TwoDigitsGroup.objects.get(user=user, is_done=False)          
             print('Group M Exists')
         except ObjectDoesNotExist:
             print('Group M Not Exits')
-            G = models.TwoDigitsGroup.objects.create(user=user,time='m')
-            print('Group M Created')
-
-
-        try:
-            G1 = models.TwoDigitsGroup.objects.get(user=user, is_done=False,time='e')          
-            print('Group E Exists')
-        except ObjectDoesNotExist:
-            print('Group E Not Exits')
-            G1 = models.TwoDigitsGroup.objects.create(user=user,time='e')
+            G = models.TwoDigitsGroup.objects.create(user=user)
             print('Group M Created')
 
 
@@ -118,7 +100,7 @@ class SalesTwoDigits(APIView):
         # print(int(totalamount))
 
         Sales = models.SalesTwoDigits.objects.create(customername=name,phoneno=phoneno,totalprice=totalamount,user=user,group=G)
-        Sales1 = models.SalesTwoDigits.objects.create(customername=name,phoneno=phoneno,totalprice=totalamount,user=user,group=G1)
+        # Sales1 = models.SalesTwoDigits.objects.create(customername=name,phoneno=phoneno,totalprice=totalamount,user=user,group=G1)
 
         print('Sales Objects Created')
 
@@ -129,8 +111,7 @@ class SalesTwoDigits(APIView):
             print(d)
             d1 = models.TwoDigits.objects.create(number=d['digits'],amount=d['amount'],user=user,sales=Sales)
             print('D1 Create')
-            d2 = models.TwoDigits.objects.create(number=d['digits'],amount=d['amount'],user=user,sales=Sales1)
-            print('D2 Create')
+           
 
         print('Finished All')
 
@@ -154,31 +135,20 @@ class Check_MORE_TWODIGITS(APIView):
         dd = request.GET.get('datetime')
         print(dd)
         d = datetime.strptime(dd,"%a %b %d %Y")
-       
-
-        contain = []
 
         try:            
-            G = models.TwoDigitsGroup.objects.get(user=user,is_done=True,end_datetime__day=str(d.day),time='m')    
-            contain.append(G.luckyNumber)    
+            G = models.TwoDigitsGroup.objects.filter(user=user,is_done=True,end_datetime__day=str(d.day))    
+            S =  serializers.TwoDigitsGroupSerializer(G,many=True)
+            return Response(S.data)
+               
             print('M True Exist')
         except ObjectDoesNotExist:
             print('Data M Not Exit')
+            return Response(0)
             #0 Means Data Does Not Exit
-            contain.append(0)
-
-        try:            
-            G1 = models.TwoDigitsGroup.objects.get(user=user,is_done=True,end_datetime__day=str(d.day),time='e')    
-            contain.append(G1.luckyNumber)    
-            print('E True Exist')
-        except ObjectDoesNotExist:
-            print('Data M Not Exit')
-            #0 Means Data Does Not Exit
-            contain.append(0)
 
         
-        return Response(contain)
-
+       
 
 class FinishSalesTwoDigits(APIView):
 
@@ -187,12 +157,12 @@ class FinishSalesTwoDigits(APIView):
                                      is_salesDigits=True)   
            
         dd = request.GET.get('datetime')
-        time = request.GET.get('time')
+      
         print(dd)
-        d = datetime.strptime(dd,"%a %b %d %Y")      
+        d = datetime.fromisoformat(dd)      
       
         try:            
-            G = models.TwoDigitsGroup.objects.get(user=user,is_done=True,end_datetime__day=str(d.day),time=time)    
+            G = models.TwoDigitsGroup.objects.get(user=user,is_done=True,end_datetime=d)    
            
         except ObjectDoesNotExist:
             print('Data Does Not Exit')
@@ -207,14 +177,24 @@ class FinishSalesTwoDigits(APIView):
     def post(self,request):
         user = get_user_model().objects.get(username=request.user,is_plan=True,
                                             is_salesDigits=True)
-        time = request.data['time']
-        G = models.TwoDigitsGroup.objects.get(user=user, is_done=False,time=time)
+       
+        G = models.TwoDigitsGroup.objects.get(user=user, is_done=False)
         G.is_done=True
         G.luckyNumber= request.data['luckynumber']
-        G.end_datetime = request.data['enddate']
+        G.end_datetime = datetime.now()
         G.save()
         return Response(status=status.HTTP_201_CREATED)
 
+    def delete(self,request):
+        user = get_user_model().objects.get(username=request.user,is_plan=True,
+                                            is_salesDigits=True)
+        dd = request.GET.get('datetime')
+       
+        d = datetime.fromisoformat(dd)  
+        G = models.TwoDigitsGroup.objects.get(user=user, is_done=True,end_datetime=d)
+        G.delete()
+        print('Successfully Deleted Data')
+        return Response(status=status.HTTP_201_CREATED)
 
 class FinishAllSalesTwoDigits(APIView):
 
@@ -315,7 +295,7 @@ class FinishSalesThreeDigits(APIView):
         print(dd) 
         d = datetime.strptime(dd,"%a %b %d %Y")
         try:            
-            G = models.ThreeDigitsGroup.objects.get(user=user,is_done=True,end_datetime__day=str(d.day),time=time)        
+            G = models.ThreeDigitsGroup.objects.get(user=user,is_done=True,end_datetime__day=str(d.day))        
         except ObjectDoesNotExist:
             print('Data Does Not Exit')
             #0 Means Data Does Not Exit
@@ -335,6 +315,20 @@ class FinishSalesThreeDigits(APIView):
         G.luckyNumber= request.data['luckynumber']
         G.end_datetime = request.data['enddate']
         G.save()
+        return Response(status=status.HTTP_201_CREATED)
+     
+    def delete(self,request):
+        user = get_user_model().objects.get(username=request.user,is_plan=True,
+                                            is_salesDigits=True)
+
+        dd = request.GET.get('datetime')
+       
+        print(dd) 
+        d = datetime.strptime(dd,"%a %b %d %Y")
+      
+        G = models.ThreeDigitsGroup.objects.get(user=user, is_done=True,end_datetime__day=str(d.day))
+        G.delete()
+        print('Successfully Deleted Data')
         return Response(status=status.HTTP_201_CREATED)
 
 

@@ -141,7 +141,7 @@ class TwoDigitsSerializer(serializers.ModelSerializer):
 class TwoDigitsGroupSerializer(serializers.ModelSerializer):
     class Meta:
         model = models.TwoDigitsGroup
-        fields = ['id','start_datetime','luckyNumber','end_datetime','time']
+        fields = ['id','start_datetime','luckyNumber','end_datetime']
 
 
 class SalesTwoDigitSerializer(serializers.ModelSerializer):
