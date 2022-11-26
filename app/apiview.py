@@ -480,15 +480,17 @@ class Expense(APIView):
         ex.title = title
         ex.price = price
         ex.description = description
-        ex.date = ex.date
+        ex.date = date
         ex.save()
         return Response(status=status.HTTP_201_CREATED)
 
     def delete(self, request):
         user = get_user_model().objects.get(username=request.user,is_plan=True)
-        id = request.data['id']
+        id = request.GET.get('id')
         ex = models.Expense.objects.get(user=user, id=id)
         ex.delete()
+        return Response(status=status.HTTP_201_CREATED)
+
 
 
 class Purchase(APIView):
@@ -554,7 +556,7 @@ class Purchase(APIView):
         ex.title = title
         ex.price = price
         ex.description = description
-        ex.date = ex.date
+        ex.date = date
         ex.save()
         return Response(status=status.HTTP_201_CREATED)
 
@@ -576,6 +578,7 @@ class OtherIncome(APIView):
             data = models.OtherIncome.objects.filter(user=user, date__year=str(
                 d.year), date__month=str(d.month), date__day=str(d.day))
             chartdata = ChartDataGenerator(self, data, time)
+            print(data)
         elif time == 'month':
             data = models.OtherIncome.objects.filter(
                 user=user, date__year=str(d.year), date__month=str(d.month))
@@ -630,7 +633,7 @@ class OtherIncome(APIView):
         ex.title = title
         ex.price = price
         ex.description = description
-        ex.date = ex.date
+        ex.date = date
         ex.save()
         return Response(status=status.HTTP_201_CREATED)
 

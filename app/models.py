@@ -163,6 +163,7 @@ class ThreeDigitsGroup(models.Model):
     user = models.ForeignKey(
         User, on_delete=models.CASCADE, related_name='user_threedigits')
     start_datetime = models.DateTimeField(auto_now_add=True)
+    title = models.CharField(max_length=255,null=True)
     luckyNumber = models.CharField(max_length=3, null=True)
     is_done = models.BooleanField(default=False)
     end_datetime = models.DateTimeField(null=True)
@@ -178,6 +179,7 @@ class TwoDigitsGroup(models.Model):
     user = models.ForeignKey(
         User, on_delete=models.CASCADE, related_name='user_twodigits')
     start_datetime = models.DateTimeField(auto_now_add=True)
+    title = models.CharField(max_length=255,null=True)
     luckyNumber = models.CharField(max_length=2, null=True)
     is_done = models.BooleanField(default=False)
     end_datetime = models.DateTimeField(null=True)

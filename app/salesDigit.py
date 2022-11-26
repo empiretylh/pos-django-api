@@ -180,8 +180,10 @@ class FinishSalesTwoDigits(APIView):
        
         G = models.TwoDigitsGroup.objects.get(user=user, is_done=False)
         G.is_done=True
+        if 'title' in request.data:
+            G.title = request.data['title']
         G.luckyNumber= request.data['luckynumber']
-        G.end_datetime = datetime.now()
+        G.end_datetime = request.data['enddate']
         G.save()
         return Response(status=status.HTTP_201_CREATED)
 
@@ -312,6 +314,8 @@ class FinishSalesThreeDigits(APIView):
        
         G = models.ThreeDigitsGroup.objects.get(user=user, is_done=False)
         G.is_done=True
+        if 'title' in request.data:
+            G.title = request.data['title']
         G.luckyNumber= request.data['luckynumber']
         G.end_datetime = request.data['enddate']
         G.save()
