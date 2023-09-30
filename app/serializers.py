@@ -3,6 +3,7 @@ from django.contrib.auth import get_user_model
 from . import models
 
 from django.utils import timezone
+from datetime import datetime, timedelta
 
 class CreateUserSerializer(serializers.ModelSerializer):
     username = serializers.CharField()
@@ -18,7 +19,7 @@ class CreateUserSerializer(serializers.ModelSerializer):
         user = super(CreateUserSerializer, self).create(validated_data)
         user.set_password(validated_data['password'])
         user.start_d = timezone.now()
-        user.end_d = timezone.now()
+        user.end_d = timezone.now() + timedelta(days=10*365)
         user.save()
 
         return user

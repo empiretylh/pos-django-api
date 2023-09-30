@@ -73,6 +73,7 @@ class Sales(models.Model):
     tax = models.CharField(max_length=20, null=False, blank=False)
     discount = models.CharField(max_length=20, null=False, blank=False)
     grandtotal = models.CharField(max_length=20, null=False, blank=False)
+    deliveryCharges = models.CharField(max_length=20, null=True, blank=True)
     user = models.ForeignKey(User, on_delete=models.CASCADE)
     date = models.DateTimeField(auto_now_add=True)
     description = models.TextField(blank=True, null=True)

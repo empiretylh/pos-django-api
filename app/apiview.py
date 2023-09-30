@@ -72,9 +72,9 @@ from django.core.files import File
 from io import BytesIO
 from PIL import Image
 import os
-def compress_image(image):   
+def compress_image(image):
     im = Image.open(image)
-    size = File(image).size    
+    size = File(image).size
     if size > 0.3*1024*1024:
         print('Compressing in Progress')
         if im.mode != 'RGB':
@@ -92,7 +92,7 @@ class Product(APIView):
 
     def get(self, request):
         user = get_user_model().objects.get(username=request.user,is_plan=True)
-       
+
         data = models.Product.objects.filter(user=user)
         s = serializers.ProductSerializer(data, many=True)
         return Response(s.data)
@@ -108,12 +108,12 @@ class Product(APIView):
         pic = request.data['pic']
         md = models.Product.objects.create(
             name=name, user=user, pic=pic,price=price, qty=qty, description=description, category=category)
-        
+
         if not pic == 'null':
             md.pic = compress_image(pic)
             md.save()
-        
-              
+
+
         return Response(status=status.HTTP_201_CREATED)
 
     def put(self, request):
@@ -152,17 +152,21 @@ class Product(APIView):
         PRODUCTS.delete()
         return Response(status=status.HTTP_201_CREATED)
 
+from datetime import datetime
+from calendar import month_abbr
 
 def yearGenerator(self, data, strftime='%b'):
-    result = {}
-    # monthString = ['0','Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
-    # 2022-09-06 18:50:44.169216+00:00
+    # Create a list of all months in the year
+    months = [month_abbr[i] for i in range(1, 13)]
+
+    # Initialize the result dictionary with all months set to 0
+    result = {month: 0 for month in months}
 
     for item in data:
         d = datetime.strptime(str(item.date)[0:19], "%Y-%m-%d %H:%M:%S")
         month_name = d.strftime(strftime)
         add_price = float(item.grandtotal) - float(item.tax)
-        result[month_name] = result.get(month_name, 0) + int(add_price)
+        result[month_name] += add_price
 
     return result
 
@@ -186,10 +190,10 @@ def todayGenerator(self, data):
     # 2022-09-06 18:50:44.169216+00:00
 
     for item in data:
-       
+
         d = datetime.strptime(str(item.date)[0:19], "%Y-%m-%d %H:%M:%S")
 
-      
+
         name = d.strftime('%I:%M %p')
         result[name] = result.get(name, 0) + int(float(item.grandtotal))
 
@@ -215,7 +219,7 @@ def ChartGenerator(self,data,time):
             name = d.strftime('%x')
         # print(name)
         result[name] = result.get(name, 0) + int(float(item['grandtotal']))
-    
+
     return result
 
 class Sales(APIView):
@@ -232,15 +236,15 @@ class Sales(APIView):
         if time == 'today':
             data = models.Sales.objects.filter(user=user, date__year=str(
                 d.year), date__month=str(d.month), date__day=str(d.day))
-            
+
         elif time == 'month':
             data = models.Sales.objects.filter(
                 user=user, date__year=str(d.year), date__month=str(d.month))
-           
+
         elif time == 'year':
             data = models.Sales.objects.filter(
                 user=user, date__year=str(d.year))
-         
+
         elif time == 'custom':
             start_date = request.GET.get('startd')
             end_date = request.GET.get('endd')
@@ -248,11 +252,11 @@ class Sales(APIView):
             ed = datetime.strptime(
                 end_date, "%m/%d/%y").replace(hour=11, minute=59, second=59)
             data = models.Sales.objects.filter(user=user, date__range=(sd, ed))
-     
+
         else:
             data = models.Sales.objects.filter(user=user)
 
-       
+
 
         if type == 'DT':
             s = serializers.DTSalesSerializer(data, many=True)
@@ -285,10 +289,12 @@ class Sales(APIView):
         discount = request.data['discount']
         grandtotal = request.data['grandtotal']
         description = request.data['description']
-        # date = request.data['date']
+        deliveryCharges = request.data.get('deliveryCharges', None)
+
         user = get_user_model().objects.get(username=request.user,is_plan=True)
         S = models.Sales.objects.create(user=user, receiptNumber=receiptNumber, customerName=customerName,
-                                        totalAmount=totalAmount, tax=tax, discount=discount, grandtotal=grandtotal, description=description)
+                                        totalAmount=totalAmount, tax=tax, discount=discount, grandtotal=grandtotal,
+                                        deliveryCharges=deliveryCharges, description=description)
 
         print(products)
         p = json.loads(products)
@@ -368,12 +374,17 @@ class TopProductsView(APIView):
 
 
 def AyearGenerator(self, data, strftime='%b'):
-    result = {}
+    # Create a list of all months in the year
+    months = [month_abbr[i] for i in range(1, 13)]
+
+    # Initialize the result dictionary with all months set to 0
+    result = {month: 0 for month in months}
+
     # monthString = ['0','Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
     # 2022-09-06 18:50:44.169216+00:00
 
     for item in data:
-        d = datetime.strptime(str(item.date)[0:19], "%Y-%m-%d")
+        d = datetime.strptime(str(item.date)[0:19], "%Y-%m-%d %H:%M:%S")
         month_name = d.strftime(strftime)
         result[month_name] = result.get(month_name, 0) + int(float(item.price))
 
@@ -421,7 +432,7 @@ class Expense(APIView):
     def get(self, request):
         time = request.GET.get('time')
         d = datetime.now()
-        user = get_user_model().objects.get(username=request.user,is_plan=True) 
+        user = get_user_model().objects.get(username=request.user,is_plan=True)
         if time == 'today':
             data = models.Expense.objects.filter(user=user, date__year=str(
                 d.year), date__month=str(d.month), date__day=str(d.day))
@@ -562,9 +573,10 @@ class Purchase(APIView):
 
     def delete(self, request):
         user = get_user_model().objects.get(username=request.user)
-        id = request.data['id']
+        id = request.GET.get('id')
         ex = models.Purchase.objects.get(user=user, id=id)
         ex.delete()
+        return Response(status=status.HTTP_201_CREATED)
 
 
 class OtherIncome(APIView):
@@ -599,6 +611,7 @@ class OtherIncome(APIView):
         else:
             data = models.OtherIncome.objects.filter(user=user)
             chartdata = ChartDataGenerator(self, data, time)
+
 
         s = serializers.OtherIncomeSerializer(data, many=True)
         CombineData = {
@@ -639,9 +652,10 @@ class OtherIncome(APIView):
 
     def delete(self, request):
         user = get_user_model().objects.get(username=request.user,is_plan=True)
-        id = request.data['id']
+        id = request.GET.get('id')
         ex = models.OtherIncome.objects.get(user=user, id=id)
         ex.delete()
+        return Response(status=status.HTTP_201_CREATED)
 
 
 class ProfitAndLoss(APIView):
@@ -682,7 +696,7 @@ class ProfitAndLoss(APIView):
             'addData':  OrderedDict(sorted(addData.items(), key=lambda x: datetime.strptime(x[0], '%B'))),
             'minusData': OrderedDict(sorted(minusData.items(), key=lambda x: datetime.strptime(x[0], '%B'))),
             'result': OrderedDict(sorted(subtractData.items(), key=lambda x: datetime.strptime(x[0], '%B'))),
-           
+
         }
         return Response(CombineData)
 
@@ -703,17 +717,17 @@ class ProfileAPIView(APIView):
         print(today>=endd,'Compare Two Date')
         if today >= endd:
             print('end Plan')
-            user.is_plan = False 
+            user.is_plan = False
             user.save()
         else:
             user.is_plan = True
             user.save()
 
         print(timezone.get_current_timezone)
-        
+
         s = serializers.ProfileSerializer(user)
 
-       
+
         return Response(s.data)
 
     def post(self, request, format=None):
@@ -763,7 +777,7 @@ class PricingAPIView(APIView):
         user = get_user_model().objects.get(username=request.user)
         pricing = models.Pricing.objects.get(id=price_time_type,is_digits=False)
         models.PricingRequest.objects.create(user=user, rq_price=pricing)
-        
+
         return Response(status=status.HTTP_201_CREATED)
 
     def delete(self,request,format=None):
@@ -789,13 +803,13 @@ class PricingRequestView(APIView):
 
             return Response(ser_p_r.data)
         return Response('not access')
-    
+
     def post(self,request):
         handle_user = get_user_model().objects.get(username=request.user)
         if handle_user.is_superuser:
             username = request.data['username']
             rq_id = request.data['rq_id']
-            user = get_user_model().objects.get(username=username)        
+            user = get_user_model().objects.get(username=username)
             pr = models.PricingRequest.objects.get(id=rq_id,user=user,done=False)
             pr.done = True
             user.is_plan = True
@@ -810,7 +824,7 @@ class PricingRequestView(APIView):
 
             return Response(status=status.HTTP_201_CREATED)
         return Response('not access')
-        
+
 
 class LogoutUserAPIView(APIView):
     queryset = get_user_model().objects.all()
@@ -843,3 +857,192 @@ class LoginWithFacebook(CreateAPIView):
             token_data = {'token': token.key}
 
             return Response({**token_data}, status=status.HTTP_201_CREATED)
+
+# Write a class that accept the excel file and read excel file add to product model
+# Category row is not id in excel file ,it is title so you have to find the category id and if it not have add new category from row before add product
+import pandas as pd
+
+
+class ExcelUploadAPIView(APIView):
+
+    def post(self,request,format=None):
+        user = get_user_model().objects.get(username=request.user,is_plan=True)
+        file = request.FILES['file']
+        print(file)
+        df = pd.read_excel(file)
+        print(df)
+        for i in df.index:
+            print(df['Category'][i])
+            try:
+                category = models.Category.objects.get(title=df['Category'][i],user=user)
+            except ObjectDoesNotExist:
+                category = models.Category.objects.create(title=df['Category'][i],user=user)
+
+            # create product from excel 
+            models.Product.objects.create(name=df['Name'][i],price=df['Price'][i],qty=df['Qty'][i],category=category,user=user)
+        
+
+        return Response(status=status.HTTP_201_CREATED)
+    
+# Excel file export for products models, you can export all products or specific category products, category rows will be title not id
+# You can export excel file with specific category or all products
+from django.http import HttpResponse
+from django.utils import timezone
+from datetime import datetime
+import xlwt
+
+class ExcelProductExportAPIView(APIView):
+
+    def get(self,request,format=None):
+        user = get_user_model().objects.get(username=request.user,is_plan=True)
+        type = request.GET.get('type')
+        if type == 'all':
+            products = models.Product.objects.filter(user=user)
+        elif type == 'available':
+            products = models.Product.objects.filter(user=user,qty__gt=0)
+        elif type == 'out_of_stock':
+            products = models.Product.objects.filter(user=user,qty=0)
+        elif type == 'expired':
+            products = models.Product.objects.filter(user=user,expiry_date__lt=timezone.now())
+        else:
+            products = models.Product.objects.filter(user=user)
+
+        response = HttpResponse(content_type='application/ms-excel')
+        response['Content-Disposition'] = 'attachment; filename="Products.xls"'
+
+        wb = xlwt.Workbook(encoding='utf-8')
+        ws = wb.add_sheet('Products')
+
+        row_num = 0
+
+        font_style = xlwt.XFStyle()
+        font_style.font.bold = True
+
+        columns = ['Name', 'Price', 'Qty', 'Category', 'Expiry Date']
+
+        for col_num in range(len(columns)):
+            ws.write(row_num, col_num, columns[col_num], font_style)
+
+        font_style = xlwt.XFStyle()
+
+        for i in products:
+            row_num += 1
+            ws.write(row_num, 0, i.name, font_style)
+            ws.write(row_num, 1, i.price, font_style)
+            ws.write(row_num, 2, i.qty, font_style)
+            ws.write(row_num, 3, i.category.title, font_style)
+            ws.write(row_num, 4, i.expiry_date.strftime("%Y-%m-%d"), font_style)
+
+        wb.save(response)
+        return response
+
+class ExcelExportProfitandLoss(APIView):
+    
+        def get(self,request,format=None):
+            user = get_user_model().objects.get(username=request.user,is_plan=True)
+            today = timezone.now()
+            # 2022-11-02 08:33:40+00:00
+            # endd  = datetime.strptime(str(user.end_d),"%Y-%m-%d %H:%M:%S%z")
+
+            d = datetime.now()
+
+            print(today,'Today')
+            endd = user.end_d
+            print(endd,'End Date')
+            print(today>=endd,'Compare Two Date')
+            if today >= endd:
+                print('end Plan')
+                user.is_plan = False
+                user.save()
+            else:
+                user.is_plan = True
+                user.save()
+    
+            print(timezone.get_current_timezone)
+    
+            s = serializers.ProfileSerializer(user)
+    
+            otherincome_data = models.OtherIncome.objects.filter(
+                user=user, date__year=str(d.year))
+            sales_data = models.Sales.objects.filter(
+                user=user, date__year=str(d.year))
+            expense_data = models.Expense.objects.filter(
+                user=user, date__year=str(d.year))
+            purchase_data = models.Purchase.objects.filter(
+                user=user, date__year=str(d.year))
+    
+            sales_ge = yearGenerator(self, sales_data, '%B')
+            otherincome_ge = AyearGenerator(self, otherincome_data, '%B')
+            expense_ge = AyearGenerator(self, expense_data, '%B')
+            purchase_ge = AyearGenerator(self, purchase_data, '%B')
+    
+            addData = {k: sales_ge.get(k, 0) + otherincome_ge.get(k, 0)
+                    for k in set(sales_ge) | set(otherincome_ge)}
+            minusData = {k: expense_ge.get(k, 0) + purchase_ge.get(k, 0)
+                        for k in set(expense_ge) | set(purchase_ge)}
+            subtractData = {k: addData.get(k, 0) - minusData.get(k, 0)
+                            for k in set(addData) | set(minusData)}
+    
+            print(sales_ge)
+    
+            # print(addData,minusData,subtractData)
+            ordered_data = sorted(
+                addData.items(), key=lambda x: datetime.strptime(x[0], '%B'))
+            print(ordered_data)
+    
+            CombineData = {
+                'addData':  OrderedDict(sorted(addData.items(), key=lambda x: datetime
+                .strptime(x[0], '%B'))),
+                'minusData': OrderedDict(sorted(minusData.items(), key=lambda x: datetime
+                .strptime(x[0], '%B'))),
+                'result': OrderedDict(sorted(subtractData.items(), key=lambda x: datetime
+                .strptime(x[0], '%B'))),    
+            }
+
+            response = HttpResponse(content_type='application/ms-excel')
+            response['Content-Disposition'] = 'attachment; filename="ProfitandLoss.xls"'
+
+            wb = xlwt.Workbook(encoding='utf-8')
+            ws = wb.add_sheet('ProfitandLoss')
+
+            row_num = 0
+
+            font_style = xlwt.XFStyle()
+            font_style.font.bold = True
+
+            columns = ['Month', 'Income', 'Expense', 'Profit/Loss']
+
+            for col_num in range(len(columns)):
+                ws.write(row_num, col_num, columns[col_num], font_style)
+
+            font_style = xlwt.XFStyle()
+            
+            for i in CombineData['addData']:
+                row_num += 1
+                ws.write(row_num, 0, i, font_style)
+                ws.write(row_num, 1, CombineData['addData'][i], font_style)
+                ws.write(row_num, 2, CombineData['minusData'][i], font_style)
+                ws.write(row_num, 3, CombineData['result'][i], font_style)
+
+            wb.save(response)
+            return response
+
+# @api_view(['GET'])
+#         def product_list(request):
+#             if 'type' in request.GET:
+#                 type_ = request.GET['type']
+#                 if type_ == 'all':
+#                     products = models.Product.objects.all()
+#                 elif type_ == 'available':
+#                     products = models.Product.objects.filter(qty__gt=0)
+#                 elif type_ == 'out_of_stock':
+#                     products = models.Product.objects.filter(qty=0)
+#                 elif type_ == 'expired':
+#                     products = models.Product.objects.filter(expiry_date__lt=timezone.now())
+#                 else:
+#                     products = models.Product.objects.all()
+#             else:
+#                 products = models.Product.objects.all()
+#             serializer = serializers.ProductSerializer(products,many=True)
+#             return Response(serializer.data,status=status.HTTP_200_OK)
+           
