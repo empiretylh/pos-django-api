@@ -27,6 +27,13 @@ urlpatterns = [
     path('api/pricingrequest/', apiview.PricingRequestView.as_view(),
          name='pricing_request'),
 
+    path('api/exportprofitnloss/',
+         apiview.ExcelExportProfitandLoss.as_view(), name='export_profitnloss'),
+    path('api/exportallreport/',
+         apiview.ExcelExportAllReportAPIView.as_view(), name='export_report'),
+
+     path('api/excelproductreport/',apiview.ExcelUploadNExportAPIView.as_view(),name='excel_product_report'),
+         
 
     path('auth/login/', obtain_auth_token, name='auth_user_login'),
     path('auth/register/', apiview.CreateUserApiView.as_view(),
@@ -35,7 +42,7 @@ urlpatterns = [
          name='auth_user_logout'),
 
 
-    
+
 ]
 
 
