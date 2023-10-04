@@ -948,7 +948,7 @@ class ExcelUploadNExportAPIView(APIView):  # for products
 
             # create product from excel
             models.Product.objects.create(
-                name=df['Name'][i], price=df['Price'][i], qty=df['Qty'][i], category=category, user=user)
+                name=df['Name'][i], price=df['Price'][i], qty=df['Qty'][i], category=category, description=df['Description'][i], user=user)
 
         return Response(status=status.HTTP_201_CREATED)
 
@@ -1192,5 +1192,93 @@ class ExcelExportAllReportAPIView(APIView):
             ws3.write(row_num, 3, j.description, font_style)
 
         wb.save(response)
+
+        return response
+
+import io
+import base64
+import barcode
+from barcode.writer import ImageWriter
+
+def generate_barcode(product_id):
+
+    product_id = str(product_id).zfill(12)
+    # Generate a unique barcode value using the EAN13 format
+    ean = barcode.get_barcode_class('ean13')
+    barcode_value = ean(str(product_id), writer=ImageWriter())
+
+    # Convert the barcode image to a base64-encoded string
+    buffer = io.BytesIO()
+    barcode_value.write(buffer)
+    barcode_image = Image.open(buffer)
+    return barcode_image
+
+# Export BarCode for all products
+
+import io
+import ast
+from django.http import HttpResponse
+from reportlab.lib.pagesizes import A4
+from reportlab.lib.units import mm
+from reportlab.pdfgen import canvas
+from reportlab.lib.utils import ImageReader
+
+
+class ExcelExportBarCodeAPIView(APIView):
+    def get(self, request, format=None):
+        user = get_user_model().objects.get(username=request.user, is_plan=True)
+
+        pdlist = request.GET.get('sid')
+        pdlist = ast.literal_eval(pdlist)
+        product_ids = [int(id) for id in pdlist]
+        products = models.Product.objects.filter(user=user, id__in=product_ids)
+
+        response = HttpResponse(content_type='application/pdf')
+        response['Content-Disposition'] = 'attachment; filename="Products_BarCode.pdf"'
+
+        buffer = io.BytesIO()
+        c = canvas.Canvas(buffer, pagesize=A4)
+
+        # Set the column and row dimensions
+        col_width = 60 * mm
+        row_height = 30 * mm
+        margin = 10 * mm
+        x = margin
+        y = A4[1] - margin
+
+        for i in products:
+            for j in range(int(i.qty)):
+                # Generate the barcode image for the product
+                barcode_image = generate_barcode(i.pk)
+
+                # Resize the barcode image to fit in the cell
+                barcode_image = barcode_image.resize((int(col_width), int(row_height)))
+
+                # Convert the barcode image to a format that can be added to the PDF
+                img_data = io.BytesIO()
+                barcode_image.save(img_data, format='PNG')
+                img_data.seek(0)
+
+                # Add the barcode image to the PDF
+                c.drawImage(ImageReader(img_data), x, y - row_height, width=col_width, height=row_height)
+
+                # Move to the next cell
+                x += col_width
+
+                # If we reach the end of the row, move to the next row
+                if x >= A4[0] - margin:
+                    x = margin
+                    y -= row_height
+
+                # If we reach the end of the page, start a new page
+                if y <= margin:
+                    c.showPage()
+                    y = A4[1] - margin
+
+        c.save()
+
+        pdf = buffer.getvalue()
+        buffer.close()
+        response.write(pdf)
 
         return response

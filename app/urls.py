@@ -33,7 +33,8 @@ urlpatterns = [
          apiview.ExcelExportAllReportAPIView.as_view(), name='export_report'),
 
      path('api/excelproductreport/',apiview.ExcelUploadNExportAPIView.as_view(),name='excel_product_report'),
-         
+     
+     path('api/exportbarcode/',apiview.ExcelExportBarCodeAPIView.as_view(),name='export_barcode'),   
 
     path('auth/login/', obtain_auth_token, name='auth_user_login'),
     path('auth/register/', apiview.CreateUserApiView.as_view(),
