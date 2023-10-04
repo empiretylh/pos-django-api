@@ -1203,6 +1203,7 @@ from barcode.writer import ImageWriter
 def generate_barcode(product_id):
 
     product_id = str(product_id).zfill(12)
+    print(product_id,'what.....')
     # Generate a unique barcode value using the EAN13 format
     ean = barcode.get_barcode_class('ean13')
     barcode_value = ean(str(product_id), writer=ImageWriter())
@@ -1236,44 +1237,51 @@ class ExcelExportBarCodeAPIView(APIView):
         response = HttpResponse(content_type='application/pdf')
         response['Content-Disposition'] = 'attachment; filename="Products_BarCode.pdf"'
 
+        # Create a buffer to hold the PDF file
         buffer = io.BytesIO()
         c = canvas.Canvas(buffer, pagesize=A4)
 
         # Set the column and row dimensions
-        col_width = 60 * mm
-        row_height = 30 * mm
+        col_width = 40 * mm
+        row_height = 20 * mm
         margin = 10 * mm
         x = margin
         y = A4[1] - margin
 
+
+        current_product_name = None
+
         for i in products:
             for j in range(int(i.qty)):
-                # Generate the barcode image for the product
                 barcode_image = generate_barcode(i.pk)
 
                 # Resize the barcode image to fit in the cell
-                barcode_image = barcode_image.resize((int(col_width), int(row_height)))
+                # barcode_image = barcode_image.resize((int(col_width), int(row_height)))
 
                 # Convert the barcode image to a format that can be added to the PDF
                 img_data = io.BytesIO()
                 barcode_image.save(img_data, format='PNG')
                 img_data.seek(0)
 
+                # c.rect(x, y - row_height - 15 * mm, col_width, row_height, stroke=1, fill=0)
+
+
                 # Add the barcode image to the PDF
                 c.drawImage(ImageReader(img_data), x, y - row_height, width=col_width, height=row_height)
 
                 # Move to the next cell
-                x += col_width
+                x += col_width + 10 * mm
 
                 # If we reach the end of the row, move to the next row
                 if x >= A4[0] - margin:
                     x = margin
-                    y -= row_height
+                    y -= row_height + 10 * mm
 
                 # If we reach the end of the page, start a new page
                 if y <= margin:
                     c.showPage()
                     y = A4[1] - margin
+                    current_product_name = None
 
         c.save()
 
