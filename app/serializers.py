@@ -59,11 +59,11 @@ class ProductSerializer(serializers.ModelSerializer):
 
 
 class SoldProductSerializer(serializers.ModelSerializer):
-    product_name = serializers.CharField(source='name.name')
+    # product_name = serializers.CharField(source='name.name')
 
     class Meta:
         model = models.SoldProduct()
-        fields = ['id', 'product_name', 'price', 'qty', 'date']
+        fields = ['id', 'name', 'price', 'qty', 'date']
 
 
 class SalesSerializer(serializers.ModelSerializer):
@@ -72,7 +72,7 @@ class SalesSerializer(serializers.ModelSerializer):
     class Meta:
         model = models.Sales()
         fields = ['receiptNumber', 'customerName', 'sproduct', 'totalAmount',
-                  'tax', 'discount', 'grandtotal', 'date', 'description']
+                  'tax', 'discount', 'grandtotal','deliveryCharges' , 'date', 'description']
 
 
 class DTSalesSerializer(serializers.ModelSerializer):

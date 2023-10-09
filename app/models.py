@@ -10,17 +10,17 @@ from django.core.files.base import ContentFile
 
 class User(AbstractUser):
     phoneno = models.CharField(max_length=11, null=True, blank=False)
-    name = models.CharField(max_length=255,null=True)
+    name = models.CharField(max_length=255, null=True)
     profileimage = models.ImageField(
         upload_to="img/profile/%y/%mm/%dd", null=True)
-    email = models.CharField(max_length=255,null=True)
+    email = models.CharField(max_length=255, null=True)
 
     address = models.TextField(blank=True, null=True)
     is_plan = models.BooleanField(default=False)
 
     # Sales Digits User
-    is_salesDigits =models.BooleanField(default=False,null=True)
-   
+    is_salesDigits = models.BooleanField(default=False, null=True)
+
     start_d = models.DateTimeField(null=True)
     end_d = models.DateTimeField(null=True)
 
@@ -53,16 +53,17 @@ class Product(models.Model):
 
 
 class SoldProduct(models.Model):
-    name = models.ForeignKey(Product, blank=True, null=True,
-                             on_delete=models.PROTECT, related_name='soldproduct_set')
+    name = models.CharField(max_length=255, null=False,
+                            blank=False, default='')
     price = models.CharField(max_length=30, null=False, blank=False)
     qty = models.CharField(max_length=30, null=False, blank=False)
     date = models.DateTimeField(auto_now_add=True)
     sales = models.ForeignKey(
         'Sales', related_name='sproduct', on_delete=models.CASCADE)
+    user = models.ForeignKey(User, on_delete=models.CASCADE, default=1)
 
     def __str__(self):
-        return self.name.name+' '+self.price
+        return self.name
 
 
 class Sales(models.Model):
@@ -138,6 +139,7 @@ class Pricing(models.Model):
     days = models.CharField(max_length=5, null=True)
     discount = models.CharField(max_length=255, null=True)
     is_digits = models.BooleanField(default=False)
+
     def __str__(self):
         return self.title + ' ' + self.price
 
@@ -164,30 +166,26 @@ class ThreeDigitsGroup(models.Model):
     user = models.ForeignKey(
         User, on_delete=models.CASCADE, related_name='user_threedigits')
     start_datetime = models.DateTimeField(auto_now_add=True)
-    title = models.CharField(max_length=255,null=True)
+    title = models.CharField(max_length=255, null=True)
     luckyNumber = models.CharField(max_length=3, null=True)
     is_done = models.BooleanField(default=False)
     end_datetime = models.DateTimeField(null=True)
 
     def __str__(self):
-        return self.user.username +' ' + showdate(self)
-
-
-
+        return self.user.username + ' ' + showdate(self)
 
 
 class TwoDigitsGroup(models.Model):
     user = models.ForeignKey(
         User, on_delete=models.CASCADE, related_name='user_twodigits')
     start_datetime = models.DateTimeField(auto_now_add=True)
-    title = models.CharField(max_length=255,null=True)
+    title = models.CharField(max_length=255, null=True)
     luckyNumber = models.CharField(max_length=2, null=True)
     is_done = models.BooleanField(default=False)
     end_datetime = models.DateTimeField(null=True)
 
     def __str__(self):
-        return self.user.username + ' '+ showdate(self)
-
+        return self.user.username + ' ' + showdate(self)
 
 
 class SalesThreeDigits(models.Model):
@@ -196,13 +194,13 @@ class SalesThreeDigits(models.Model):
     customername = models.CharField(max_length=255, null=False)
     phoneno = models.CharField(max_length=11, null=True)
     datetime = models.DateTimeField(auto_now_add=True)
-    totalprice = models.CharField(max_length=10,null=False)
-     # In Group
+    totalprice = models.CharField(max_length=10, null=False)
+    # In Group
     group = models.ForeignKey(
-        ThreeDigitsGroup, on_delete=models.CASCADE, related_name='luckyNumber_three',null=True)
-    
+        ThreeDigitsGroup, on_delete=models.CASCADE, related_name='luckyNumber_three', null=True)
+
     def __str__(self):
-        return self.customername 
+        return self.customername
 
 
 class SalesTwoDigits(models.Model):
@@ -211,14 +209,13 @@ class SalesTwoDigits(models.Model):
     customername = models.CharField(max_length=255, null=False)
     phoneno = models.CharField(max_length=11, null=True)
     datetime = models.DateTimeField(auto_now_add=True)
-    totalprice = models.CharField(max_length=10,null=False)
-       # In Group
+    totalprice = models.CharField(max_length=10, null=False)
+    # In Group
     group = models.ForeignKey(
-        TwoDigitsGroup, on_delete=models.CASCADE, related_name='luckyNumber_two',null=True)
+        TwoDigitsGroup, on_delete=models.CASCADE, related_name='luckyNumber_two', null=True)
 
     def __str__(self):
-      return self.customername 
-
+        return self.customername
 
 
 class ThreeDigits(models.Model):
@@ -226,11 +223,11 @@ class ThreeDigits(models.Model):
         User, on_delete=models.CASCADE)
     number = models.CharField(max_length=3, null=False)
     amount = models.CharField(max_length=255, null=False)
-    sales = models.ForeignKey(SalesThreeDigits,on_delete=models.CASCADE,related_name='three_sales_digits',null=True)
-
+    sales = models.ForeignKey(SalesThreeDigits, on_delete=models.CASCADE,
+                              related_name='three_sales_digits', null=True)
 
     def __str__(self):
-        return self.number +' ' + self.amount
+        return self.number + ' ' + self.amount
 
 
 class TwoDigits(models.Model):
@@ -238,7 +235,8 @@ class TwoDigits(models.Model):
         User, on_delete=models.CASCADE)
     number = models.CharField(max_length=3, null=False)
     amount = models.CharField(max_length=255, null=False)
-    sales = models.ForeignKey(SalesTwoDigits,on_delete=models.CASCADE,related_name='two_sales_digits',null=True)
+    sales = models.ForeignKey(
+        SalesTwoDigits, on_delete=models.CASCADE, related_name='two_sales_digits', null=True)
 
     def __str__(self):
-        return self.number +' '+ self.amount
+        return self.number + ' ' + self.amount

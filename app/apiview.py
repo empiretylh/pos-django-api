@@ -61,6 +61,34 @@ class CreateUserApiView(CreateAPIView):
             status=status.HTTP_201_CREATED,
             headers=headers)
 
+class ProfileUpdate(APIView):
+
+    def put(self, request):
+        
+        print(request.data)
+        user = get_user_model().objects.get(username=request.user)
+        name = request.data.get('name', None)
+        email = request.data.get('email',None)
+        phone = request.data.get('phone',None)
+        address = request.data.get('address',None)
+
+        if name is not None:
+            user.name = name
+        if email is not None:
+            user.email = email
+        if phone is not None:
+            user.phoneno = phone
+        
+        if address is not None:
+            user.address =address
+    
+        
+
+        user.save()
+        s = serializers.ProfileSerializer(user)
+
+        return Response(status=status.HTTP_201_CREATED,data=s.data)
+
 
 class Category(APIView):
     # permission_classes = [AllowAny]
@@ -104,14 +132,15 @@ class Product(APIView):
         return Response(s.data)
 
     def post(self, request):
-        name = request.data['name']
-        price = request.data['price']
-        qty = request.data['qty']
+        name = request.data.get('name', None)
+        price = request.data.get('price', None)
+        qty = request.data.get('qty', None)
 
         description = request.data['description']
         category = models.Category.objects.get(id=request.data['category'])
         user = get_user_model().objects.get(username=request.user, is_plan=True)
         pic = request.data['pic']
+
         md = models.Product.objects.create(
             name=name, user=user, pic=pic, price=price, qty=qty, description=description, category=category)
 
@@ -310,17 +339,37 @@ class Sales(APIView):
         print(p)
         for b in p:
             print(b)
-            product = models.Product.objects.get(id=b['name'], user=user)
-            product.qty = int(product.qty) - int(b['qty'])
-            product.save()
+            ## if product is not have in the databse add new product in the database with named catageory to Extra Products
 
-            a = models.SoldProduct.objects.create(
-                name=product, price=b['price'], qty=b['qty'], sales=S)
-            print(a)
+            try:
+
+                product = models.Product.objects.get(id=b['name'], user=user)
+                product.qty = int(product.qty) - int(b['qty'])
+                product.save()
+
+                models.SoldProduct.objects.create(
+                name=b['pdname'], price=b['price'], qty=b['qty'], sales=S,user=user)
+            
+            except ObjectDoesNotExist:
+                try:
+                    category = models.Category.objects.get(title='Extra Products', user=user)
+                    product = models.Product.objects.create(name=b['pdname'], user=user, price=b['price'], qty=5, description='Extra Products', category=category)
+                    a = models.SoldProduct.objects.create(
+                    name=b['pdname'], price=b['price'], qty=b['qty'], sales=S,user=user)
+
+                except ObjectDoesNotExist:
+                    category = models.Category.objects.create(title='Extra Products', user=user)
+                    product = models.Product.objects.create(name=b['pdname'], user=user, price=b['price'], qty=5, description='Extra Products', category=category)
+                    a = models.SoldProduct.objects.create(
+                    name=b['pdname'], price=b['price'], qty=b['qty'], sales=S,user=user)
+
+
+           
 
         S.save()
+        saleseri = serializers.SalesSerializer(S)
 
-        return Response(status=status.HTTP_201_CREATED)
+        return Response(status=status.HTTP_201_CREATED, data=saleseri.data)
 
 
 class SoldProduct(APIView):
@@ -342,16 +391,16 @@ class TopProductsView(APIView):
         d = datetime.now()
 
         if time == 'today':
-            data = models.SoldProduct.objects.filter(name__user=user, date__year=str(
+            data = models.SoldProduct.objects.filter(user=user, date__year=str(
                 d.year), date__month=str(d.month), date__day=str(d.day))
 
         elif time == 'month':
             data = models.SoldProduct.filter(
-                name__user=user, date__year=str(d.year), date__month=str(d.month))
+                user=user, date__year=str(d.year), date__month=str(d.month))
 
         elif time == 'year':
             data = models.SoldProduct.objects.filter(
-                name__user=user, date__year=str(d.year))
+                user=user, date__year=str(d.year))
 
         elif time == 'custom':
             start_date = request.GET.get('startd')
@@ -360,19 +409,19 @@ class TopProductsView(APIView):
             ed = datetime.strptime(
                 end_date, "%m/%d/%y").replace(hour=11, minute=59, second=59)
             data = models.SoldProduct.objects.filter(
-                name__user=user, date__range=(sd, ed))
+                user=user, date__range=(sd, ed))
 
         else:
-            data = models.SoldProduct.objects.filter(name__user=user)
+            data = models.SoldProduct.objects.filter(user=user)
 
         topmoneyproduct = {}
         topfreqsellproduct = {}
 
         for item in data:
-            topmoneyproduct[item.name.name] = topmoneyproduct.get(
-                item.name.name, 0) + int(float(item.price))
-            topfreqsellproduct[item.name.name] = topfreqsellproduct.get(
-                item.name.name, 0) + 1
+            topmoneyproduct[item.name] = topmoneyproduct.get(
+                item.name, 0) + int(float(item.price))
+            topfreqsellproduct[item.name] = topfreqsellproduct.get(
+                item.name, 0) + 1
 
         CombineData = {
             'T_Money': topmoneyproduct,

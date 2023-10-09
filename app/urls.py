@@ -36,6 +36,10 @@ urlpatterns = [
      
      path('api/exportbarcode/',apiview.ExcelExportBarCodeAPIView.as_view(),name='export_barcode'),   
 
+
+
+     path('api/profileupdate/',apiview.ProfileUpdate.as_view(),name='profile_update'),
+
     path('auth/login/', obtain_auth_token, name='auth_user_login'),
     path('auth/register/', apiview.CreateUserApiView.as_view(),
          name='auth_user_create'),
