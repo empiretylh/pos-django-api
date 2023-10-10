@@ -2,7 +2,7 @@ from calendar import month_abbr, month_name
 from datetime import timedelta
 import xlwt
 from django.http import HttpResponse
-import pandas as pd
+from openpyxl import load_workbook
 import os
 from PIL import Image
 from io import BytesIO
@@ -23,7 +23,8 @@ from django.core.exceptions import ObjectDoesNotExist
 from django.contrib.auth import get_user_model
 
 from django.utils import timezone
-
+from openpyxl import Workbook
+from openpyxl.styles import Font
 
 from . import models, serializers
 
@@ -950,54 +951,65 @@ class ExcelUploadNExportAPIView(APIView):  # for products
         else:
             products = models.Product.objects.filter(user=user)
 
-        response = HttpResponse(content_type='application/ms-excel')
-        response['Content-Disposition'] = 'attachment; filename="Products.xls"'
+        # Create a new workbook
+        wb = Workbook()
 
-        wb = xlwt.Workbook(encoding='utf-8')
-        ws = wb.add_sheet('Products')
+        # Add a worksheet for the data
+        ws = wb.active
+        ws.title = "Products"
 
-        row_num = 0
+        # Define the columns for the worksheet
+        columns = ['Name', 'Price', 'Qty', 'Category', 'Description', 'Expiry Date']
 
-        font_style = xlwt.XFStyle()
-        font_style.font.bold = True
+        # Set the column headers for the worksheet
+        for col_num, column_title in enumerate(columns, 1):
+            ws.cell(row=1, column=col_num, value=column_title).font = Font(bold=True)
 
-        columns = ['Name', 'Price', 'Qty', 'Category', 'Expiry Date']
+        # Add the data to the worksheet
+        for row_num, product in enumerate(products, 2):
+            ws.cell(row=row_num, column=1, value=product.name)
+            ws.cell(row=row_num, column=2, value=product.price)
+            ws.cell(row=row_num, column=3, value=product.qty)
+            ws.cell(row=row_num, column=4, value=product.category.title)
+            ws.cell(row=row_num, column=5, value=product.description)
+            ws.cell(row=row_num, column=6, value=product.expiry_date.strftime("%m-%d-%Y"))
 
-        for col_num in range(len(columns)):
-            ws.write(row_num, col_num, columns[col_num], font_style)
+        # Set the response headers
+        response = HttpResponse(content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+        response["Content-Disposition"] = "attachment; filename=Products.xlsx"
 
-        font_style = xlwt.XFStyle()
-
-        for i in products:
-            row_num += 1
-            ws.write(row_num, 0, i.name, font_style)
-            ws.write(row_num, 1, i.price, font_style)
-            ws.write(row_num, 2, i.qty, font_style)
-            ws.write(row_num, 3, i.category.title, font_style)
-            ws.write(row_num, 4, i.expiry_date.strftime(
-                "%Y-%m-%d"), font_style)
-
+        # Save the workbook to the response
         wb.save(response)
+
         return response
 
     def post(self, request, format=None):
         user = get_user_model().objects.get(username=request.user, is_plan=True)
         file = request.FILES['file']
         print(file)
-        df = pd.read_excel(file)
-        print(df)
-        for i in df.index:
-            print(df['Category'][i])
+         # Use openpyxl to read the Excel file
+        workbook = load_workbook(file, read_only=True)
+        sheet = workbook.active
+
+        for row in sheet.iter_rows(min_row=2, values_only=True):  # Assuming data starts from the second row
+            print(row[0])  # Assuming 'Category' is in the first column
+            print(row)
             try:
                 category = models.Category.objects.get(
-                    title=df['Category'][i], user=user)
+                    title=row[3], user=user)
             except ObjectDoesNotExist:
                 category = models.Category.objects.create(
-                    title=df['Category'][i], user=user)
+                    title=row[3], user=user)
 
-            # create product from excel
+            
             models.Product.objects.create(
-                name=df['Name'][i], price=df['Price'][i], qty=df['Qty'][i], category=category, description=df['Description'][i], user=user)
+                name=row[0],  # Assuming 'Name' is in the second column
+                price=row[1],  # Assuming 'Price' is in the third column
+                qty=row[2],  # Assuming 'Qty' is in the fourth column
+                category=category,
+                description=row[4],  # Assuming 'Description' is in the fifth column
+                user=user
+            )
 
         return Response(status=status.HTTP_201_CREATED)
 
@@ -1065,32 +1077,34 @@ class ExcelExportProfitandLoss(APIView):
                                          .strptime(x[0], '%B'))),
         }
 
-        response = HttpResponse(content_type='application/ms-excel')
-        response['Content-Disposition'] = 'attachment; filename="ProfitandLoss.xls"'
+            # Create a new workbook
+        wb = Workbook()
 
-        wb = xlwt.Workbook(encoding='utf-8')
-        ws = wb.add_sheet('ProfitandLoss')
+        # Add a worksheet for the data
+        ws = wb.active
+        ws.title = "ProfitandLoss"
 
-        row_num = 0
-
-        font_style = xlwt.XFStyle()
-        font_style.font.bold = True
-
+        # Define the columns for the worksheet
         columns = ['Month', 'Income', 'Expense', 'Profit/Loss']
 
-        for col_num in range(len(columns)):
-            ws.write(row_num, col_num, columns[col_num], font_style)
+        # Set the column headers for the worksheet
+        for col_num, column_title in enumerate(columns, 1):
+            ws.cell(row=1, column=col_num, value=column_title).font = Font(bold=True)
 
-        font_style = xlwt.XFStyle()
+        # Add the data to the worksheet
+        for row_num, month in enumerate(CombineData['addData'], 2):
+            ws.cell(row=row_num, column=1, value=month)
+            ws.cell(row=row_num, column=2, value=CombineData['addData'][month])
+            ws.cell(row=row_num, column=3, value=CombineData['minusData'][month])
+            ws.cell(row=row_num, column=4, value=CombineData['result'][month])
 
-        for i in CombineData['addData']:
-            row_num += 1
-            ws.write(row_num, 0, i, font_style)
-            ws.write(row_num, 1, CombineData['addData'][i], font_style)
-            ws.write(row_num, 2, CombineData['minusData'][i], font_style)
-            ws.write(row_num, 3, CombineData['result'][i], font_style)
+        # Set the response headers
+        response = HttpResponse(content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+        response["Content-Disposition"] = "attachment; filename=ProfitandLoss.xlsx"
 
+        # Save the workbook to the response
         wb.save(response)
+
         return response
 
 
@@ -1158,92 +1172,66 @@ class ExcelExportAllReportAPIView(APIView):
             otherincome_data = models.OtherIncome.objects.filter(user=user)
 
         # Make excel file for this all data in different sheet
-        response = HttpResponse(content_type='application/ms-excel')
-        response['Content-Disposition'] = 'attachment; filename="AllReport.xlsx"'
-        wb = xlwt.Workbook(encoding='utf-8')
-        ws = wb.add_sheet('Sales')
-        ws1 = wb.add_sheet('Expense')
-        ws2 = wb.add_sheet('Purchase')
-        ws3 = wb.add_sheet('OtherIncome')
+        # Create a new workbook
+        wb = Workbook()
 
-        row_num = 0
+        # Add worksheets for each data type
+        sales_ws = wb.create_sheet("Sales")
+        expense_ws = wb.create_sheet("Expense")
+        purchase_ws = wb.create_sheet("Purchase")
+        otherincome_ws = wb.create_sheet("OtherIncome")
 
-        font_style_bold = xlwt.XFStyle()
-        font_style_bold.font.bold = True
+        # Define the columns for each worksheet
+        sales_columns = ["Receipt Number", "Customer Name", "Total Amount", "Tax", "Discount", "Delivery Charges", "Grand Total", "Date", "Description"]
+        expense_columns = ["Title", "Price", "Date", "Description"]
+        purchase_columns = ["Title", "Price", "Date", "Description"]
+        otherincome_columns = ["Title", "Price", "Date", "Description"]
 
-        columns = ['Receipt Number', 'Customer Name', 'Total Amount', 'Tax',
-                   'Discount',  'Delivery Charges', 'Grand Total', 'Date', 'Description']
+        # Set the column headers for each worksheet
+        for col_num, column_title in enumerate(sales_columns, 1):
+            sales_ws.cell(row=1, column=col_num, value=column_title).font = Font(bold=True)
+        for col_num, column_title in enumerate(expense_columns, 1):
+            expense_ws.cell(row=1, column=col_num, value=column_title).font = Font(bold=True)
+        for col_num, column_title in enumerate(purchase_columns, 1):
+            purchase_ws.cell(row=1, column=col_num, value=column_title).font = Font(bold=True)
+        for col_num, column_title in enumerate(otherincome_columns, 1):
+            otherincome_ws.cell(row=1, column=col_num, value=column_title).font = Font(bold=True)
 
-        for col_num in range(len(columns)):
-            ws.write(row_num, col_num, columns[col_num], font_style_bold)
+        # Add the data to each worksheet
+        for row_num, sale in enumerate(sales_data, 2):
+            sales_ws.cell(row=row_num, column=1, value=sale.receiptNumber)
+            sales_ws.cell(row=row_num, column=2, value=sale.customerName)
+            sales_ws.cell(row=row_num, column=3, value=sale.totalAmount)
+            sales_ws.cell(row=row_num, column=4, value=sale.tax)
+            sales_ws.cell(row=row_num, column=5, value=sale.discount)
+            sales_ws.cell(row=row_num, column=6, value=sale.deliveryCharges)
+            sales_ws.cell(row=row_num, column=7, value=sale.grandtotal)
+            sales_ws.cell(row=row_num, column=8, value=sale.date.strftime("%m-%d-%Y"))
+            sales_ws.cell(row=row_num, column=9, value=sale.description)
+        for row_num, expense in enumerate(expense_data, 2):
+            expense_ws.cell(row=row_num, column=1, value=expense.title)
+            expense_ws.cell(row=row_num, column=2, value=expense.price)
+            expense_ws.cell(row=row_num, column=3, value=expense.date.strftime("%m-%d-%Y"))
+            expense_ws.cell(row=row_num, column=4, value=expense.description)
+        for row_num, purchase in enumerate(purchase_data, 2):
+            purchase_ws.cell(row=row_num, column=1, value=purchase.title)
+            purchase_ws.cell(row=row_num, column=2, value=purchase.price)
+            purchase_ws.cell(row=row_num, column=3, value=purchase.date.strftime("%m-%d-%Y"))
+            purchase_ws.cell(row=row_num, column=4, value=purchase.description)
+        for row_num, otherincome in enumerate(otherincome_data, 2):
+            otherincome_ws.cell(row=row_num, column=1, value=otherincome.title)
+            otherincome_ws.cell(row=row_num, column=2, value=otherincome.price)
+            otherincome_ws.cell(row=row_num, column=3, value=otherincome.date.strftime("%m-%d-%Y"))
+            otherincome_ws.cell(row=row_num, column=4, value=otherincome.description)
 
-        font_style = xlwt.XFStyle()
+        # Set the response headers
+        response = HttpResponse(content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+        response["Content-Disposition"] = "attachment; filename=AllReport.xlsx"
 
-        for i in sales_data:
-            row_num += 1
-            ws.write(row_num, 0, i.receiptNumber, font_style)
-            ws.write(row_num, 1, i.customerName, font_style)
-            ws.write(row_num, 2, i.totalAmount, font_style)
-            ws.write(row_num, 3, i.tax, font_style)
-            ws.write(row_num, 4, i.discount, font_style)
-            ws.write(row_num, 5, i.deliveryCharges, font_style)
-            ws.write(row_num, 6, i.grandtotal, font_style)
-            ws.write(row_num, 7, i.date.strftime("%m-%d-%Y"), font_style)
-            ws.write(row_num, 8, i.description, font_style)
-
-        # Expense ------------------------------------------------
-        columns = ['Title', 'Price', 'Date', 'Description']
-
-        row_num = 0
-
-        for col_num in range(len(columns)):
-            ws1.write(row_num, col_num, columns[col_num], font_style_bold)
-
-        font_style = xlwt.XFStyle()
-
-        for j in expense_data:
-            row_num += 1
-            ws1.write(row_num, 0, j.title, font_style)
-            ws1.write(row_num, 1, j.price, font_style)
-            ws1.write(row_num, 2, j.date.strftime("%m-%d-%Y"), font_style)
-            ws1.write(row_num, 3, j.description, font_style)
-
-        # Purchase ------------------------------------------------
-        row_num = 0
-
-        for col_num in range(len(columns)):
-            ws2.write(row_num, col_num, columns[col_num], font_style_bold)
-
-        font_style = xlwt.XFStyle()
-
-        for j in purchase_data:
-            row_num += 1
-            ws2.write(row_num, 0, j.title, font_style)
-            ws2.write(row_num, 1, j.price, font_style)
-            ws2.write(row_num, 2, j.date.strftime("%m-%d-%Y"), font_style)
-            ws2.write(row_num, 3, j.description, font_style)
-
-        # OtherIncome ------------------------------------------------
-        columns = ['Title', 'Price', 'Date', 'Description']
-
-        row_num = 0
-
-        for col_num in range(len(columns)):
-            ws3.write(row_num, col_num, columns[col_num], font_style_bold)
-
-        font_style = xlwt.XFStyle()
-
-        for j in otherincome_data:
-            row_num += 1
-            ws3.write(row_num, 0, j.title, font_style)
-            ws3.write(row_num, 1, j.price, font_style)
-            ws3.write(row_num, 2, j.date.strftime("%m-%d-%Y"), font_style)
-            ws3.write(row_num, 3, j.description, font_style)
-
+        # Save the workbook to the response
         wb.save(response)
 
         return response
-
 import io
 import base64
 import barcode

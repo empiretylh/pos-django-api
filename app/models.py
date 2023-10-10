@@ -42,7 +42,7 @@ class Product(models.Model):
     price = models.CharField(max_length=30, null=False, blank=False)
     qty = models.CharField(max_length=30, null=False, blank=False)
     date = models.DateTimeField(auto_now_add=True)
-    description = models.TextField(blank=True)
+    description = models.TextField(blank=True,null=True)
     category = models.ForeignKey(Category, on_delete=models.CASCADE)
     pic = models.ImageField(upload_to="img/product/%y/%mm/%dd", null=True)
 
