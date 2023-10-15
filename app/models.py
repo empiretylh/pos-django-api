@@ -1,3 +1,4 @@
+from django.db.models import F
 from email.policy import default
 from socketserver import ThreadingUnixDatagramServer
 from unittest.util import _MAX_LENGTH
@@ -39,10 +40,13 @@ class Category(models.Model):
 
 class Product(models.Model):
     name = models.CharField(max_length=255, null=False, blank=False)
+    # this is products sales price
     price = models.CharField(max_length=30, null=False, blank=False)
+    # this is products cost price
+    cost = models.CharField(max_length=30, null=False, blank=False, default=0)
     qty = models.CharField(max_length=30, null=False, blank=False)
     date = models.DateTimeField(auto_now_add=True)
-    description = models.TextField(blank=True,null=True)
+    description = models.TextField(blank=True, null=True)
     category = models.ForeignKey(Category, on_delete=models.CASCADE)
     pic = models.ImageField(upload_to="img/product/%y/%mm/%dd", null=True)
 
@@ -56,21 +60,26 @@ class SoldProduct(models.Model):
     name = models.CharField(max_length=255, null=False,
                             blank=False, default='')
     price = models.CharField(max_length=30, null=False, blank=False)
+    profit = models.CharField(
+        max_length=30, null=False, blank=False, default=0)
     qty = models.CharField(max_length=30, null=False, blank=False)
     date = models.DateTimeField(auto_now_add=True)
     sales = models.ForeignKey(
         'Sales', related_name='sproduct', on_delete=models.CASCADE)
     user = models.ForeignKey(User, on_delete=models.CASCADE, default=1)
+    productid = models.CharField(max_length=30, null=False, blank=False,default=0)
 
     def __str__(self):
         return self.name
 
 
 class Sales(models.Model):
-    receiptNumber = models.CharField(
-        max_length=50, null=False, blank=False, primary_key=True)
+    receiptNumber = models.AutoField(primary_key=True)
+    voucherNumber = models.CharField(
+        max_length=50, null=False, blank=False, default=0)
     customerName = models.CharField(max_length=30, null=False, blank=False)
     totalAmount = models.CharField(max_length=20, null=False, blank=False)
+    totalProfit = models.CharField(max_length=20, null=False, blank=False,default=0)
     tax = models.CharField(max_length=20, null=False, blank=False)
     discount = models.CharField(max_length=20, null=False, blank=False)
     grandtotal = models.CharField(max_length=20, null=False, blank=False)

@@ -12,7 +12,8 @@ from rest_framework.authtoken.views import obtain_auth_token
 
 urlpatterns = [
     path('api/categorys/', apiview.Category.as_view(), name='category'),
-    path('api/products/', apiview.Product.as_view(), name='product'),
+    path('api/products/', apiview.Product.as_view(), name='product'), 
+    path('api/products/changewithperentage/', apiview.ProductPriceChangeWithPercentage.as_view(), name='product_change_with_perentage'),
     path('api/soldproducts/', apiview.SoldProduct.as_view(), name='sold_product'),
     path('api/sales/', apiview.Sales.as_view(), name='sales'),
     path('api/expenses/', apiview.Expense.as_view(), name='expense'),

@@ -1,3 +1,12 @@
+import io
+from reportlab.lib.utils import ImageReader
+from reportlab.pdfgen import canvas
+from reportlab.lib.units import mm
+from reportlab.lib.pagesizes import A4
+import ast
+from barcode.writer import ImageWriter
+import barcode
+import base64
 from calendar import month_abbr, month_name
 from datetime import timedelta
 import xlwt
@@ -62,16 +71,17 @@ class CreateUserApiView(CreateAPIView):
             status=status.HTTP_201_CREATED,
             headers=headers)
 
+
 class ProfileUpdate(APIView):
 
     def put(self, request):
-        
+
         print(request.data)
         user = get_user_model().objects.get(username=request.user)
         name = request.data.get('name', None)
-        email = request.data.get('email',None)
-        phone = request.data.get('phone',None)
-        address = request.data.get('address',None)
+        email = request.data.get('email', None)
+        phone = request.data.get('phone', None)
+        address = request.data.get('address', None)
 
         if name is not None:
             user.name = name
@@ -79,16 +89,14 @@ class ProfileUpdate(APIView):
             user.email = email
         if phone is not None:
             user.phoneno = phone
-        
+
         if address is not None:
-            user.address =address
-    
-        
+            user.address = address
 
         user.save()
         s = serializers.ProfileSerializer(user)
 
-        return Response(status=status.HTTP_201_CREATED,data=s.data)
+        return Response(status=status.HTTP_201_CREATED, data=s.data)
 
 
 class Category(APIView):
@@ -135,6 +143,7 @@ class Product(APIView):
     def post(self, request):
         name = request.data.get('name', None)
         price = request.data.get('price', None)
+        cost = request.data.get('cost', None)
         qty = request.data.get('qty', None)
 
         description = request.data['description']
@@ -143,7 +152,9 @@ class Product(APIView):
         pic = request.data['pic']
 
         md = models.Product.objects.create(
-            name=name, user=user, pic=pic, price=price, qty=qty, description=description, category=category)
+            name=name, user=user, pic=pic, price=price,
+            cost=cost, qty=qty, description=description,
+            category=category)
 
         if not pic == 'null':
             md.pic = compress_image(pic)
@@ -158,6 +169,7 @@ class Product(APIView):
         price = request.data['price']
         qty = request.data['qty']
         pic = request.data['pic']
+        cost = request.data.get('cost')
 
         description = request.data['description']
         category = models.Category.objects.get(
@@ -167,6 +179,7 @@ class Product(APIView):
         PRODUCTS.name = name
         PRODUCTS.price = price
         PRODUCTS.qty = qty
+        PRODUCTS.cost = cost
         # PRODUCTS.date = date
         PRODUCTS.description = description
         PRODUCTS.category = category
@@ -187,6 +200,47 @@ class Product(APIView):
         PRODUCTS.delete()
         return Response(status=status.HTTP_201_CREATED)
 
+class ProductPriceChangeWithPercentage(APIView):
+    def put(self, request):
+        user = get_user_model().objects.get(username=request.user, is_plan=True)
+        minus_percentage = request.data.get('minus_perctange', None)
+        plus_percentage = request.data.get('plus_perctange', None)
+
+        # print(request.data,minus_percentage,plus_percentage)
+
+        # # If minus_perctange is not None then minus_percentage will be applied to all products' price to decrease the price eg: if 5% is given then 5% will be decreased from all products' price
+        # print(float(minus_percentage) * 100,"Minus Perctangle")
+        if minus_percentage is not None:
+            products = models.Product.objects.filter(user=user)
+            for product in products:
+                print(product.price, "Original ")
+                minus_percentage = float(minus_percentage)
+                new_price = round(float(product.price) - (float(product.price) * minus_percentage / 100), 2)
+                product.price = new_price
+                print(product.price, "Minus ")
+                product.save()
+
+        if plus_percentage is not None:
+            products = models.Product.objects.filter(user=user)
+            for product in products:
+                new_price = round(float(product.price) + (float(product.price) * float(plus_percentage) / 100), 2)
+                product.price = new_price
+                product.save()
+
+        return Response(status=status.HTTP_201_CREATED)
+
+
+class ProductPrice(APIView):
+    def get(self, request):
+        user = get_user_model().objects.get(username=request.user, is_plan=True)
+        products = models.Product.objects.filter(user=user)
+        
+        # Sum all products cost and multiply with qty to calucate purchase
+        total_purchase = 0
+        for product in products:
+            total_purchase += float(product.cost) * float(product.qty)
+
+        return Response(data=total_purchase, status=status.HTTP_201_CREATED)
 
 def yearGenerator(self, data, strftime='%b'):
     # Create a list of all months in the year
@@ -206,7 +260,7 @@ def yearGenerator(self, data, strftime='%b'):
         d = datetime.strptime(str(item.date)[0:19], "%Y-%m-%d %H:%M:%S")
         month_name_str = d.strftime(strftime)
         print(month_name_str)
-        add_price = float(item.grandtotal) - float(item.tax)
+        add_price = float(item.totalProfit)
         result[month_name_str] += add_price
 
     return result
@@ -262,6 +316,15 @@ def ChartGenerator(self, data, time):
 
     return result
 
+def taxCalculatorWithPerctange(self, price, tax_percentage):
+    tax_percentage = float(tax_percentage)
+    tax = round((float(price) * tax_percentage / 100), 2)
+    return tax
+
+def discountCalculatorWithPerctange(self, price, discount_percentage):
+    discount_percentage = float(discount_percentage)
+    discount = round((float(price) * discount_percentage / 100), 2)
+    return discount
 
 class Sales(APIView):
     # permission_classes = [AllowAny]P
@@ -319,8 +382,6 @@ class Sales(APIView):
         return Response(CombineData)
 
     def post(self, request):
-
-        receiptNumber = request.data['receiptNumber']
         customerName = request.data['customerName']
         products = request.data['products']
         totalAmount = request.data['totalAmount']
@@ -330,17 +391,34 @@ class Sales(APIView):
         description = request.data['description']
         deliveryCharges = request.data.get('deliveryCharges', None)
 
+        # receiptnumber from sales table and plus one
+
         user = get_user_model().objects.get(username=request.user, is_plan=True)
-        S = models.Sales.objects.create(user=user, receiptNumber=receiptNumber, customerName=customerName,
+        last = models.Sales.objects.filter(user=user).last()
+
+        if last is None:
+           rn = '1'.zfill(5)
+        else:
+           rn = str(int(last.voucherNumber) + 1).zfill(5)
+                   
+           
+
+       
+        S = models.Sales.objects.create(user=user, customerName=customerName, voucherNumber=rn,
                                         totalAmount=totalAmount, tax=tax, discount=discount, grandtotal=grandtotal,
                                         deliveryCharges=deliveryCharges, description=description)
 
         print(products)
         p = json.loads(products)
         print(p)
+
+        totalProfit  = 0;
+
+        totalAmount =  0; # Each Product
+
         for b in p:
             print(b)
-            ## if product is not have in the databse add new product in the database with named catageory to Extra Products
+            # if product is not have in the databse add new product in the database with named catageory to Extra Products
 
             try:
 
@@ -348,29 +426,139 @@ class Sales(APIView):
                 product.qty = int(product.qty) - int(b['qty'])
                 product.save()
 
+
+                profit = (float(b['price']) - float(product.cost)) * float(b['qty']) 
+                ta =  (float(product.price)) * float(b['qty'])
+
+                print("Profit try : ", profit)    
+
                 models.SoldProduct.objects.create(
-                name=b['pdname'], price=b['price'], qty=b['qty'], sales=S,user=user)
-            
+                    name=b['pdname'], price=b['price'], profit=profit, qty=b['qty'],
+                    productid = product.id,sales=S, user=user)
+
             except ObjectDoesNotExist:
                 try:
-                    category = models.Category.objects.get(title='Extra Products', user=user)
-                    product = models.Product.objects.create(name=b['pdname'], user=user, price=b['price'], qty=5, description='Extra Products', category=category)
+                    category = models.Category.objects.get(
+                        title='Extra Products', user=user)
+                    product = models.Product.objects.create(
+                        name=b['pdname'], user=user, price=b['price'], cost=b['cost'],
+                        qty=5, description='Extra Products', category=category)
+                    
+                    profit = (float(b['price']) - float(product.cost)) * float(b['qty']) 
+                    ta +=  (float(product.price)) * float(b['qty'])
+
                     a = models.SoldProduct.objects.create(
-                    name=b['pdname'], price=b['price'], qty=b['qty'], sales=S,user=user)
+                        name=b['pdname'], price=b['price'], qty=b['qty'], 
+                          productid = product.id, profit=profit, sales=S, user=user)
 
                 except ObjectDoesNotExist:
-                    category = models.Category.objects.create(title='Extra Products', user=user)
-                    product = models.Product.objects.create(name=b['pdname'], user=user, price=b['price'], qty=5, description='Extra Products', category=category)
+                    category = models.Category.objects.create(
+                        title='Extra Products', user=user)
+                    product = models.Product.objects.create(
+                        name=b['pdname'], user=user, price=b['price'], cost=b['cost'],
+                        qty=5, description='Extra Products', category=category)
+                    
+                    profit = (float(b['price']) - float(product.cost)) * float(b['qty']) 
+
+                    ta =  (float(product.price)) * float(b['qty'])
+
                     a = models.SoldProduct.objects.create(
-                    name=b['pdname'], price=b['price'], qty=b['qty'], sales=S,user=user)
-
-
-           
-
+                        name=b['pdname'], price=b['price'], qty=b['qty'], 
+                          productid = product.id, profit=profit, sales=S, user=user)
+                    
+            totalAmount  += ta
+            totalProfit += profit
+        
+        # S.totalProfit = totalProfit - taxCalculatorWithPerctange(self, totalProfit, S.tax)
+        S.totalProfit =  totalProfit - discountCalculatorWithPerctange(self, totalAmount, S.discount)
         S.save()
         saleseri = serializers.SalesSerializer(S)
 
         return Response(status=status.HTTP_201_CREATED, data=saleseri.data)
+    
+    # Delete will be sale return to products and delete from sales
+
+    def delete(self, request):
+        id = request.GET.get('id')
+        user = get_user_model().objects.get(username=request.user, is_plan=True)
+
+        S = models.Sales.objects.get(user=user,receiptNumber=id)
+        
+        Product = models.SoldProduct.objects.filter(sales=S)
+        for p in Product:
+            product = models.Product.objects.get(id=p.productid, user=user)
+            product.qty = int(product.qty) + int(p.qty)
+            product.save()
+            p.delete()
+        S.delete()
+
+        return Response(status=status.HTTP_201_CREATED)
+       
+    # if user edit the sales voucher like price and qty then it will be updated in the database
+    # if user increase product qty then it will be decrease from the Product models qty and if user decrease product qty then it will be increase from the Product models qty
+    # then it will be updated in the SoldProduct Database
+
+    def put(self, request):
+        print(request.data)
+        id = request.data['id']
+        user = get_user_model().objects.get(username=request.user, is_plan=True)
+        customerName = request.data['customerName']
+        products = request.data['products']
+       
+        
+
+        S = models.Sales.objects.get(user=user, receiptNumber =id)
+        S.customerName = customerName
+     #   S.totalAmount = totalAmount
+        # S.tax = tax
+        # S.discount = discount
+        # S.grandtotal = grandtotal
+        # S.description = description
+        # S.deliveryCharges = deliveryCharges
+        S.save()
+
+        editedProducts = products
+
+        currentSoldProduct = models.SoldProduct.objects.filter(sales=S,user=user)
+
+        pf = 0 # total profit
+        ta = 0 # total amount
+
+        for currentProduct in currentSoldProduct:
+            found = False
+            for editedProduct in editedProducts:
+                if currentProduct.id == editedProduct['id']:
+                    found = True
+                    print("CURRENT PRODUCTID" , currentProduct.id)
+                    product = models.Product.objects.get(id=currentProduct.productid, user=user)
+                    if int(currentProduct.qty) > int(editedProduct['qty']):
+                        product.qty = int(product.qty) + (int(currentProduct.qty) - int(editedProduct['qty']))
+                        product.save()
+                    elif int(currentProduct.qty) < int(editedProduct['qty']):
+                        product.qty = int(product.qty) - (int(editedProduct['qty']) - int(currentProduct.qty))
+                        product.save()
+
+                    currentProduct.qty = editedProduct['qty']
+                    currentProduct.price = editedProduct['price']
+                    pf += (float(currentProduct.price) - float(product.cost)) * float(editedProduct['qty'] )
+                    ta += (float(currentProduct.price)) * float(editedProduct['qty'])
+                    currentProduct.profit = (float(currentProduct.price) - float(product.cost)) * float(editedProduct['qty'] )
+                    currentProduct.save()
+
+                    break
+            if not found:
+                product = models.Product.objects.get(id=currentProduct.productid, user=user)
+                product.qty += int(currentProduct.qty)
+                product.save()
+                currentProduct.delete()
+
+        S.totalAmount = ta
+        S.grandtotal =  ta + taxCalculatorWithPerctange(self, ta, S.tax) - discountCalculatorWithPerctange(self, ta, S.discount) + float(S.deliveryCharges)
+        S.totalProfit =  pf - discountCalculatorWithPerctange(self, ta, S.discount)
+        S.save()
+        
+        return Response(status=status.HTTP_201_CREATED)
+            
 
 
 class SoldProduct(APIView):
@@ -383,7 +571,7 @@ class SoldProduct(APIView):
         seri = serializers.SoldProductSerializer(S.products.all(), many=True)
         return Response(seri.data)
 
-
+   
 class TopProductsView(APIView):
 
     def get(self, request):
@@ -420,7 +608,7 @@ class TopProductsView(APIView):
 
         for item in data:
             topmoneyproduct[item.name] = topmoneyproduct.get(
-                item.name, 0) + int(float(item.price))
+                item.name, 0) + int(float(item.price)) * int(float(item.qty))
             topfreqsellproduct[item.name] = topfreqsellproduct.get(
                 item.name, 0) + 1
 
@@ -959,11 +1147,13 @@ class ExcelUploadNExportAPIView(APIView):  # for products
         ws.title = "Products"
 
         # Define the columns for the worksheet
-        columns = ['Name', 'Price', 'Qty', 'Category', 'Description', 'Expiry Date']
+        columns = ['Name', 'Price', 'Qty',
+                   'Category', 'Description', 'Expiry Date']
 
         # Set the column headers for the worksheet
         for col_num, column_title in enumerate(columns, 1):
-            ws.cell(row=1, column=col_num, value=column_title).font = Font(bold=True)
+            ws.cell(row=1, column=col_num,
+                    value=column_title).font = Font(bold=True)
 
         # Add the data to the worksheet
         for row_num, product in enumerate(products, 2):
@@ -972,10 +1162,12 @@ class ExcelUploadNExportAPIView(APIView):  # for products
             ws.cell(row=row_num, column=3, value=product.qty)
             ws.cell(row=row_num, column=4, value=product.category.title)
             ws.cell(row=row_num, column=5, value=product.description)
-            ws.cell(row=row_num, column=6, value=product.expiry_date.strftime("%m-%d-%Y"))
+            ws.cell(row=row_num, column=6,
+                    value=product.expiry_date.strftime("%m-%d-%Y"))
 
         # Set the response headers
-        response = HttpResponse(content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+        response = HttpResponse(
+            content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
         response["Content-Disposition"] = "attachment; filename=Products.xlsx"
 
         # Save the workbook to the response
@@ -987,27 +1179,29 @@ class ExcelUploadNExportAPIView(APIView):  # for products
         user = get_user_model().objects.get(username=request.user, is_plan=True)
         file = request.FILES['file']
         print(file)
-         # Use openpyxl to read the Excel file
+        # Use openpyxl to read the Excel file
         workbook = load_workbook(file, read_only=True)
         sheet = workbook.active
 
-        for row in sheet.iter_rows(min_row=2, values_only=True):  # Assuming data starts from the second row
+        # Assuming data starts from the second row
+        for row in sheet.iter_rows(min_row=2, values_only=True):
             print(row[0])  # Assuming 'Category' is in the first column
             print(row)
             try:
                 category = models.Category.objects.get(
-                    title=row[3], user=user)
+                    title=row[4], user=user)
             except ObjectDoesNotExist:
                 category = models.Category.objects.create(
-                    title=row[3], user=user)
+                    title=row[4], user=user)
 
-            
             models.Product.objects.create(
-                name=row[0],  # Assuming 'Name' is in the second column
-                price=row[1],  # Assuming 'Price' is in the third column
-                qty=row[2],  # Assuming 'Qty' is in the fourth column
+                name= row[0],  # Assuming 'Name' is in the second column
+                cost = row[1], # Assuming "Buy Price " is in the
+                price= row[2],  # Assuming 'Price' is in the third column
+                qty= row[3],  # Assuming 'Qty' is in the fourth column
                 category=category,
-                description=row[4],  # Assuming 'Description' is in the fifth column
+                # Assuming 'Description' is in the fifth column
+                description=row[5],
                 user=user
             )
 
@@ -1076,8 +1270,7 @@ class ExcelExportProfitandLoss(APIView):
             'result': OrderedDict(sorted(subtractData.items(), key=lambda x: datetime
                                          .strptime(x[0], '%B'))),
         }
-
-            # Create a new workbook
+        # Create a new workbook
         wb = Workbook()
 
         # Add a worksheet for the data
@@ -1089,17 +1282,20 @@ class ExcelExportProfitandLoss(APIView):
 
         # Set the column headers for the worksheet
         for col_num, column_title in enumerate(columns, 1):
-            ws.cell(row=1, column=col_num, value=column_title).font = Font(bold=True)
+            ws.cell(row=1, column=col_num,
+                    value=column_title).font = Font(bold=True)
 
         # Add the data to the worksheet
         for row_num, month in enumerate(CombineData['addData'], 2):
             ws.cell(row=row_num, column=1, value=month)
             ws.cell(row=row_num, column=2, value=CombineData['addData'][month])
-            ws.cell(row=row_num, column=3, value=CombineData['minusData'][month])
+            ws.cell(row=row_num, column=3,
+                    value=CombineData['minusData'][month])
             ws.cell(row=row_num, column=4, value=CombineData['result'][month])
 
         # Set the response headers
-        response = HttpResponse(content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+        response = HttpResponse(
+            content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
         response["Content-Disposition"] = "attachment; filename=ProfitandLoss.xlsx"
 
         # Save the workbook to the response
@@ -1178,69 +1374,72 @@ class ExcelExportAllReportAPIView(APIView):
         # Add worksheets for each data type
         sales_ws = wb.create_sheet("Sales")
         expense_ws = wb.create_sheet("Expense")
-        purchase_ws = wb.create_sheet("Purchase")
         otherincome_ws = wb.create_sheet("OtherIncome")
 
         # Define the columns for each worksheet
-        sales_columns = ["Receipt Number", "Customer Name", "Total Amount", "Tax", "Discount", "Delivery Charges", "Grand Total", "Date", "Description"]
+        sales_columns = ["Receipt Number", "Customer Name", "Total Amount", "Tax",
+                         "Discount", "Delivery Charges", "Grand Total", "Profit","Date", "Description"]
         expense_columns = ["Title", "Price", "Date", "Description"]
-        purchase_columns = ["Title", "Price", "Date", "Description"]
         otherincome_columns = ["Title", "Price", "Date", "Description"]
 
         # Set the column headers for each worksheet
         for col_num, column_title in enumerate(sales_columns, 1):
-            sales_ws.cell(row=1, column=col_num, value=column_title).font = Font(bold=True)
+            sales_ws.cell(row=1, column=col_num,
+                          value=column_title).font = Font(bold=True)
         for col_num, column_title in enumerate(expense_columns, 1):
-            expense_ws.cell(row=1, column=col_num, value=column_title).font = Font(bold=True)
-        for col_num, column_title in enumerate(purchase_columns, 1):
-            purchase_ws.cell(row=1, column=col_num, value=column_title).font = Font(bold=True)
+            expense_ws.cell(row=1, column=col_num,
+                            value=column_title).font = Font(bold=True)
+
         for col_num, column_title in enumerate(otherincome_columns, 1):
-            otherincome_ws.cell(row=1, column=col_num, value=column_title).font = Font(bold=True)
+            otherincome_ws.cell(row=1, column=col_num,
+                                value=column_title).font = Font(bold=True)
 
         # Add the data to each worksheet
         for row_num, sale in enumerate(sales_data, 2):
-            sales_ws.cell(row=row_num, column=1, value=sale.receiptNumber)
+            sales_ws.cell(row=row_num, column=1, value=sale.voucherNumber)
             sales_ws.cell(row=row_num, column=2, value=sale.customerName)
             sales_ws.cell(row=row_num, column=3, value=sale.totalAmount)
             sales_ws.cell(row=row_num, column=4, value=sale.tax)
             sales_ws.cell(row=row_num, column=5, value=sale.discount)
             sales_ws.cell(row=row_num, column=6, value=sale.deliveryCharges)
             sales_ws.cell(row=row_num, column=7, value=sale.grandtotal)
-            sales_ws.cell(row=row_num, column=8, value=sale.date.strftime("%m-%d-%Y"))
-            sales_ws.cell(row=row_num, column=9, value=sale.description)
+            sales_ws.cell(row=row_num, column=8, value=sale.totalProfit)
+            sales_ws.cell(row=row_num, column=9,
+                          value=sale.date.strftime("%m-%d-%Y"))
+            sales_ws.cell(row=row_num, column=10, value=sale.description)
+
+
+
         for row_num, expense in enumerate(expense_data, 2):
             expense_ws.cell(row=row_num, column=1, value=expense.title)
             expense_ws.cell(row=row_num, column=2, value=expense.price)
-            expense_ws.cell(row=row_num, column=3, value=expense.date.strftime("%m-%d-%Y"))
+            expense_ws.cell(row=row_num, column=3,
+                            value=expense.date.strftime("%m-%d-%Y"))
             expense_ws.cell(row=row_num, column=4, value=expense.description)
-        for row_num, purchase in enumerate(purchase_data, 2):
-            purchase_ws.cell(row=row_num, column=1, value=purchase.title)
-            purchase_ws.cell(row=row_num, column=2, value=purchase.price)
-            purchase_ws.cell(row=row_num, column=3, value=purchase.date.strftime("%m-%d-%Y"))
-            purchase_ws.cell(row=row_num, column=4, value=purchase.description)
+
         for row_num, otherincome in enumerate(otherincome_data, 2):
             otherincome_ws.cell(row=row_num, column=1, value=otherincome.title)
             otherincome_ws.cell(row=row_num, column=2, value=otherincome.price)
-            otherincome_ws.cell(row=row_num, column=3, value=otherincome.date.strftime("%m-%d-%Y"))
-            otherincome_ws.cell(row=row_num, column=4, value=otherincome.description)
+            otherincome_ws.cell(row=row_num, column=3,
+                                value=otherincome.date.strftime("%m-%d-%Y"))
+            otherincome_ws.cell(row=row_num, column=4,
+                                value=otherincome.description)
 
         # Set the response headers
-        response = HttpResponse(content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+        response = HttpResponse(
+            content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
         response["Content-Disposition"] = "attachment; filename=AllReport.xlsx"
 
         # Save the workbook to the response
         wb.save(response)
 
         return response
-import io
-import base64
-import barcode
-from barcode.writer import ImageWriter
+
 
 def generate_barcode(product_id):
 
     product_id = str(product_id).zfill(12)
-    print(product_id,'what.....')
+    print(product_id, 'what.....')
     # Generate a unique barcode value using the EAN13 format
     ean = barcode.get_barcode_class('ean13')
     barcode_value = ean(str(product_id), writer=ImageWriter())
@@ -1252,14 +1451,6 @@ def generate_barcode(product_id):
     return barcode_image
 
 # Export BarCode for all products
-
-import io
-import ast
-from django.http import HttpResponse
-from reportlab.lib.pagesizes import A4
-from reportlab.lib.units import mm
-from reportlab.pdfgen import canvas
-from reportlab.lib.utils import ImageReader
 
 
 class ExcelExportBarCodeAPIView(APIView):
@@ -1285,7 +1476,6 @@ class ExcelExportBarCodeAPIView(APIView):
         x = margin
         y = A4[1] - margin
 
-
         current_product_name = None
 
         for i in products:
@@ -1302,9 +1492,9 @@ class ExcelExportBarCodeAPIView(APIView):
 
                 # c.rect(x, y - row_height - 15 * mm, col_width, row_height, stroke=1, fill=0)
 
-
                 # Add the barcode image to the PDF
-                c.drawImage(ImageReader(img_data), x, y - row_height, width=col_width, height=row_height)
+                c.drawImage(ImageReader(img_data), x, y - row_height,
+                            width=col_width, height=row_height)
 
                 # Move to the next cell
                 x += col_width + 10 * mm
