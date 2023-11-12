@@ -13,6 +13,7 @@ admin.site.register(models.FeedBack)
 admin.site.register(models.AppVersion)
 admin.site.register(models.Pricing)
 admin.site.register(models.PricingRequest)
+admin.site.register(models.Device)
 
 
 #Sales Digits App

@@ -27,16 +27,16 @@ from rest_framework.permissions import AllowAny
 from rest_framework.generics import CreateAPIView
 from rest_framework import status
 from rest_framework.authtoken.models import Token
-
+from django.contrib.auth import authenticate, login
 from django.core.exceptions import ObjectDoesNotExist
 from django.contrib.auth import get_user_model
 
 from django.utils import timezone
 from openpyxl import Workbook
 from openpyxl.styles import Font
-
+from django.core.mail import EmailMessage
 from . import models, serializers
-
+from django.core.exceptions import ValidationError
 import json
 
 
@@ -48,6 +48,63 @@ def CHECK_IN_PLAN_AND_RESPONSE(user, data, **args):
 
     print('User is in Plan')
 
+
+
+class LoginView(APIView):
+
+    permission_classes = [AllowAny]
+
+
+    def post(self, request, *args, **kwargs):
+      
+        print(request.data)
+
+        username_or_email = request.data['username']
+        password = request.data['password']
+        device_unique =  request.data.get("unique_id",None)
+        device_name =  request.data.get("device_name",None)
+        acc_type =  request.data.get("acc_type","Cashier")
+        
+
+
+        # user devices
+        device = request.data.get('device', None)
+
+        user = None
+        if '@' in username_or_email:
+            b = models.User.objects.get(email=username_or_email)
+            user = authenticate(username=b.username, password=password)
+            
+        else:
+            user = authenticate(username=username_or_email, password=password)
+
+        if not user:
+            return Response({'error': 'Invalid Credentials'},
+                            status=status.HTTP_401_UNAUTHORIZED)
+
+        # user = serializer.validated_data['user']
+        token, created = Token.objects.get_or_create(user=user)
+
+
+        device_count = models.Device.objects.filter(user=user).count()
+
+        if device_count > user.device_limit:
+            raise ValidationError('Device Limit Exceeded')
+        else:
+            models.Device.objects.create(user=user,unique_id=device_unique,device_name=device_name,acc_type=acc_type)
+
+
+        # add custom data to response
+        response_data = {
+            'token': token.key,
+            'user_id': user.id,
+            'username': user.username,
+            'email': user.email,
+            # add additional data fields here as needed
+        }
+
+
+        return Response(response_data)
 
 class CreateUserApiView(CreateAPIView):
 
@@ -70,7 +127,90 @@ class CreateUserApiView(CreateAPIView):
             {**serializers.data, **token_data},
             status=status.HTTP_201_CREATED,
             headers=headers)
+    
+import random
 
+class password_recovery(APIView):
+    permission_classes = [AllowAny]
+  
+    def post(self, request):
+        username = request.data.get('username', None)
+        user = get_user_model().objects.get(username=username)
+        otp = random.randint(100000, 999999)
+        models.OTP.objects.create(user=user, otp=otp)
+       
+    
+        subject = "Perfect Solution Password Recovery"
+        
+        html_content = '''<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Reset Password</title>
+  </head>
+  <body>
+    <p>Hi '''+ username +'''</p>
+    <h1>Perfect Solutions</h1>
+    <p>
+      We received a request to the reset password associated with your Perfect
+      Solutions' POS account.
+    </p>
+    <p>Here is your OTP code:<br /></p>
+    <h1 style="width:100%; text-align:center">'''+str(otp)+'''</h1>
+    <p>Thank you.</p>
+  </body>
+</html>
+        '''        
+        SENDEMAIL = EmailMessage(subject, html_content, 'perfectsolutionpos@gmail.com', [
+                                 user.email], headers={'Message-ID': user.id})
+        SENDEMAIL.content_subtype = "html"
+        SENDEMAIL.send()
+        # TODO: Send the password reset link to the user's email address
+        # email = ...
+        # send_email(email, uid, token)
+
+        return Response({"email":user.email}, status=status.HTTP_200_OK)
+
+class CheckOTPandChangePassword(APIView):
+    permission_classes=[AllowAny]
+
+    def get(self, request):
+        username = request.GET.get('username', None)
+        otp = request.GET.get('otp', None)
+        print(otp)
+        user = get_user_model().objects.get(username=username)
+        otp = models.OTP.objects.get(user=user, otp=otp)
+        if otp is not None:
+            return Response(status=status.HTTP_200_OK)
+        else:
+            return Response(status=status.HTTP_400_BAD_REQUEST)
+
+    def post(self, request):
+        username = request.data.get('username', None)
+        otp = request.data.get('otp', None)
+        password = request.data.get('password', None)
+        oldpassword = request.data.get('oldpassword',None)
+
+        if oldpassword != None:
+            user = get_user_model().objects.get(username=request.user)
+
+            if user.check_password(oldpassword):
+                user.set_password(password)
+                user.save()
+                return Response(status=status.HTTP_200_OK)
+            else:
+                return Response(status=status.HTTP_400_BAD_REQUEST)
+
+        else:
+            user = get_user_model().objects.get(username=username)
+            m_otp = models.OTP.objects.get(user=user, otp=otp)
+
+            user.set_password(password)
+            user.save()
+            m_otp.delete()
+
+            return Response(status=status.HTTP_200_OK)
 
 class ProfileUpdate(APIView):
 
@@ -145,7 +285,7 @@ class Product(APIView):
         price = request.data.get('price', None)
         cost = request.data.get('cost', None)
         qty = request.data.get('qty', None)
-
+        barcode = request.data.get('barcode', None)
         description = request.data['description']
         category = models.Category.objects.get(id=request.data['category'])
         user = get_user_model().objects.get(username=request.user, is_plan=True)
@@ -154,6 +294,7 @@ class Product(APIView):
         md = models.Product.objects.create(
             name=name, user=user, pic=pic, price=price,
             cost=cost, qty=qty, description=description,
+            barcode=barcode,
             category=category)
 
         if not pic == 'null':
@@ -183,7 +324,8 @@ class Product(APIView):
         # PRODUCTS.date = date
         PRODUCTS.description = description
         PRODUCTS.category = category
-        print(pic)
+        PRODUCTS.barcode  = request.data.get('barcode',PRODUCTS.barcode)
+      
 
         if not pic == 'null':
             PRODUCTS.pic = compress_image(pic)
@@ -441,11 +583,11 @@ class Sales(APIView):
                     category = models.Category.objects.get(
                         title='Extra Products', user=user)
                     product = models.Product.objects.create(
-                        name=b['pdname'], user=user, price=b['price'], cost=b['cost'],
+                        name=b['pdname'], user=user, price=b['price'], cost=int(b['cost']),
                         qty=5, description='Extra Products', category=category)
                     
                     profit = (float(b['price']) - float(product.cost)) * float(b['qty']) 
-                    ta +=  (float(product.price)) * float(b['qty'])
+                    ta =  (float(product.price)) * float(b['qty'])
 
                     a = models.SoldProduct.objects.create(
                         name=b['pdname'], price=b['price'], qty=b['qty'], 
@@ -455,7 +597,7 @@ class Sales(APIView):
                     category = models.Category.objects.create(
                         title='Extra Products', user=user)
                     product = models.Product.objects.create(
-                        name=b['pdname'], user=user, price=b['price'], cost=b['cost'],
+                        name=b['pdname'], user=user, price=b['price'], cost=int(b['cost']),
                         qty=5, description='Extra Products', category=category)
                     
                     profit = (float(b['price']) - float(product.cost)) * float(b['qty']) 
@@ -1090,6 +1232,8 @@ class LogoutUserAPIView(APIView):
     queryset = get_user_model().objects.all()
 
     def get(self, request, format=None):
+        device_unique_id = request.GET.get('duid')
+        models.Device.objects.filter(unique_id=device_unique_id).delete()
         request.user.auth_token.delete()
         return Response(status=status.HTTP_200_OK)
 
@@ -1147,8 +1291,8 @@ class ExcelUploadNExportAPIView(APIView):  # for products
         ws.title = "Products"
 
         # Define the columns for the worksheet
-        columns = ['Name', 'Price', 'Qty',
-                   'Category', 'Description', 'Expiry Date']
+        columns = ['Product Name', 'Buy Price', 'Sale Price','Qty'
+                   'Category', 'Description', 'Barcode']
 
         # Set the column headers for the worksheet
         for col_num, column_title in enumerate(columns, 1):
@@ -1158,12 +1302,13 @@ class ExcelUploadNExportAPIView(APIView):  # for products
         # Add the data to the worksheet
         for row_num, product in enumerate(products, 2):
             ws.cell(row=row_num, column=1, value=product.name)
+            ws.cell(row=row_num, column=2, value=product.cost)
             ws.cell(row=row_num, column=2, value=product.price)
             ws.cell(row=row_num, column=3, value=product.qty)
             ws.cell(row=row_num, column=4, value=product.category.title)
             ws.cell(row=row_num, column=5, value=product.description)
             ws.cell(row=row_num, column=6,
-                    value=product.expiry_date.strftime("%m-%d-%Y"))
+                    value=product.barcode)
 
         # Set the response headers
         response = HttpResponse(
@@ -1439,7 +1584,7 @@ class ExcelExportAllReportAPIView(APIView):
 def generate_barcode(product_id):
 
     product_id = str(product_id).zfill(12)
-    print(product_id, 'what.....')
+    # print(product_id, 'what.....')
     # Generate a unique barcode value using the EAN13 format
     ean = barcode.get_barcode_class('ean13')
     barcode_value = ean(str(product_id), writer=ImageWriter())
@@ -1480,7 +1625,7 @@ class ExcelExportBarCodeAPIView(APIView):
 
         for i in products:
             for j in range(int(i.qty)):
-                barcode_image = generate_barcode(i.pk)
+                barcode_image = generate_barcode(i.barcode)
 
                 # Resize the barcode image to fit in the cell
                 # barcode_image = barcode_image.resize((int(col_width), int(row_height)))
@@ -1517,3 +1662,5 @@ class ExcelExportBarCodeAPIView(APIView):
         response.write(pdf)
 
         return response
+
+

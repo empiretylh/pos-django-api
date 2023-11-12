@@ -21,7 +21,7 @@ class CreateUserSerializer(serializers.ModelSerializer):
         user = super(CreateUserSerializer, self).create(validated_data)
         user.set_password(validated_data['password'])
         user.start_d = timezone.now()
-        user.end_d = timezone.now() + timedelta(days=10*365)
+        user.end_d = timezone.now()
         user.save()
 
         return user
@@ -59,7 +59,7 @@ class ProductSerializer(serializers.ModelSerializer):
     class Meta:
         model = models.Product()
         fields = ['id', 'name', 'price', 'cost', 'qty',
-                  'date', 'description', 'category', 'pic']
+                  'date', 'description', 'category', 'pic','barcode']
 
 
 class SoldProductSerializer(serializers.ModelSerializer):

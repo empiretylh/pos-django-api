@@ -41,17 +41,16 @@ urlpatterns = [
 
      path('api/profileupdate/',apiview.ProfileUpdate.as_view(),name='profile_update'),
 
-    path('auth/login/', obtain_auth_token, name='auth_user_login'),
+    path('auth/login/', apiview.LoginView.as_view(), name='auth_user_login'),
     path('auth/register/', apiview.CreateUserApiView.as_view(),
          name='auth_user_create'),
     path('auth/logout/', apiview.LogoutUserAPIView.as_view(),
          name='auth_user_logout'),
-
-
-
+     path('auth/forgotpassword/', apiview.password_recovery.as_view(), name='password_recovery'),
+     path('auth/changepassword/', apiview.CheckOTPandChangePassword.as_view(), name='change_password'),
+     path('howtopaymoney/', views.howtopaymoney, name='howtopaymoney'),
 ]
 
 
 if settings.DEBUG:
-    urlpatterns += static(settings.MEDIA_URL,
-                          document_root=settings.MEDIA_ROOT)
+    urlpatterns += static(settings.MEDIA_URL,document_root=settings.MEDIA_ROOT)

@@ -25,6 +25,8 @@ class User(AbstractUser):
     start_d = models.DateTimeField(null=True)
     end_d = models.DateTimeField(null=True)
 
+    device_limit = models.IntegerField(default=5)
+
     def uploadimage(self, profileimage: str):
         temp_file = ContentFile(profileimage)
         self.profileimage.save(f'{self.pk}'.jpeg, temp_file)
@@ -49,8 +51,10 @@ class Product(models.Model):
     description = models.TextField(blank=True, null=True)
     category = models.ForeignKey(Category, on_delete=models.CASCADE)
     pic = models.ImageField(upload_to="img/product/%y/%mm/%dd", null=True)
+    barcode =  models.CharField(max_length=255, null=True, blank=True, default=0)
 
     user = models.ForeignKey(User, on_delete=models.CASCADE)
+
 
     def __str__(self):
         return self.name
@@ -170,6 +174,19 @@ def showdate(self):
         return self.end_datetime.date().strftime("%d/%m/%Y, %H:%M:%S")
     return 'Not Done'
 
+
+class OTP(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    otp = models.CharField(max_length=6)
+
+
+
+class Device(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    unique_id = models.CharField(max_length=255, null=False)
+    device_name = models.CharField(max_length=244, null=False)
+    acc_type = models.CharField(max_length=50, null=True, default="Cashier")
+    login_time = models.DateTimeField(auto_now_add=True)
 
 class ThreeDigitsGroup(models.Model):
     user = models.ForeignKey(
