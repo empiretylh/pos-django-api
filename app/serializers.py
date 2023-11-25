@@ -59,7 +59,7 @@ class ProductSerializer(serializers.ModelSerializer):
     class Meta:
         model = models.Product()
         fields = ['id', 'name', 'price', 'cost', 'qty',
-                  'date', 'description', 'category', 'pic','barcode']
+                  'date', 'description', 'category', 'pic','barcode','supplier_payment']
 
 
 class SoldProductSerializer(serializers.ModelSerializer):
@@ -76,8 +76,22 @@ class SalesSerializer(serializers.ModelSerializer):
     class Meta:
         model = models.Sales()
         fields = ['receiptNumber','voucherNumber', 'customerName', 'sproduct', 'totalAmount', 'totalProfit', 
-                  'tax', 'discount', 'grandtotal', 'deliveryCharges', 'date', 'description']
+                  'tax', 'discount', 'grandtotal', 'deliveryCharges', 'date', 'description','customer_payment']
 
+class CustomerSerializer(serializers.ModelSerializer):
+    sales = SalesSerializer(many=True, read_only=True)
+
+    class Meta:
+        model = models.CustomerName()
+        fields = ['id','name','description', 'sales']
+
+
+class SupplierSerializer(serializers.ModelSerializer):
+    products = ProductSerializer(many=True, read_only=True)
+
+    class Meta:
+        model = models.Supplier()
+        fields = ['id','name','description', 'products']
 
 class DTSalesSerializer(serializers.ModelSerializer):
     class Meta:

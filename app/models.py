@@ -52,7 +52,7 @@ class Product(models.Model):
     category = models.ForeignKey(Category, on_delete=models.CASCADE)
     pic = models.ImageField(upload_to="img/product/%y/%mm/%dd", null=True)
     barcode =  models.CharField(max_length=255, null=True, blank=True, default=0)
-
+    supplier_payment  = models.CharField(max_length=255, null=True, blank=True, default=0)
     user = models.ForeignKey(User, on_delete=models.CASCADE)
 
 
@@ -91,9 +91,29 @@ class Sales(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE)
     date = models.DateTimeField(auto_now_add=True)
     description = models.TextField(blank=True, null=True)
+    customer_payment = models.CharField(max_length=20, null=True, blank=True, default='0')
+
+    def save(self, *args, **kwargs):
+        if self.customer_payment == None:
+            self.customer_payment = self.grandtotal
+          
+        super().save(*args, **kwargs)
+    
+class CustomerName(models.Model):
+    name = models.CharField(max_length=255, null=False, blank=False, unique=True)
+    description = models.TextField(blank=True, null=True)
+    sales = models.ManyToManyField(Sales, related_name='customer_sales')
+    user =  models.ForeignKey(User, on_delete=models.CASCADE)
 
     def __str__(self):
-        return self.customerName + '  '+self.grandtotal + '  RN :'+self.receiptNumber
+        return self.name + ' ' + self.user.username
+
+
+class Supplier(models.Model):
+    name =  models.CharField(max_length=255, null=False, blank=False)
+    description = models.TextField(blank=True, null=True)
+    products = models.ManyToManyField(Product, related_name='suppliers')
+    user =  models.ForeignKey(User, on_delete=models.CASCADE)
 
 
 class OtherIncome(models.Model):

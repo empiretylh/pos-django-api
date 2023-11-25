@@ -21,6 +21,8 @@ urlpatterns = [
     path('api/otherincome/', apiview.OtherIncome.as_view(), name='otherincome'),
     path('api/profitnloss/', apiview.ProfitAndLoss.as_view(), name='profitnloss'),
     path('api/profile/', apiview.ProfileAPIView.as_view(), name='profile'),
+    path('api/customer/', apiview.CustomerView.as_view(), name='customer_view'),
+    path('api/supplier/', apiview.SupplierView.as_view(), name='supplier_view'),
 
     path('api/toproduct/', apiview.TopProductsView.as_view(), name='topproduct'),
     path('api/feedback/', apiview.FeedBackAPIView.as_view(), name='feedback'),
