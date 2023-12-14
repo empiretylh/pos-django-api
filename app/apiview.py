@@ -257,6 +257,26 @@ class Category(APIView):
         models.Category.objects.create(title=request.data['title'], user=user)
         return Response(status=status.HTTP_201_CREATED)
 
+    def delete(self, request):
+        id =  request.GET.get('id',None)
+        user = get_user_model().objects.get(username=request.user)
+        ct = models.Category.objects.get(id=id)
+        ct.delete()
+
+        return Response(status=status.HTTP_200_OK)
+
+    def put(self, request):
+        id =  request.data.get('id', None)
+      
+
+        ct = models.Category.objects.get(id=id)
+        ct.title = request.data.get('title',ct.title)
+
+
+        ct.save()
+
+        return Response(status=status.HTTP_200_OK)
+
 
 def compress_image(image):
     im = Image.open(image)
@@ -279,8 +299,30 @@ class Product(APIView):
     def get(self, request):
         user = get_user_model().objects.get(username=request.user, is_plan=True)
 
-        data = models.Product.objects.filter(user=user)
+        expiry_filter_type = request.GET.get('expiry_filter_type', None)
+        expiry_filter_day = request.GET.get('expiry_filter_day', None) #eg. 10 days, 5 days
+
+
+        if not expiry_filter_day == None:
+            data = models.Product.objects.filter(user=user, expiry_date__range=[datetime.now(), datetime.now() + timedelta(days=int(expiry_filter_day))])
+            s = serializers.ProductSerializer(data, many=True)
+
+            return Response(s.data)
+
+        if expiry_filter_type == 'expired':
+            data = models.Product.objects.filter(user=user, expiry_date__lt=datetime.now())
+        elif expiry_filter_type == 'not_expired':
+            data = models.Product.objects.filter(user=user, expiry_date__gt=datetime.now())
+        # filter this week expiry date
+        elif expiry_filter_type == 'this_week':
+            data = models.Product.objects.filter(user=user, expiry_date__range=[datetime.now(), datetime.now() + timedelta(days=7)])
+        else:
+            data = models.Product.objects.filter(user=user)
+            
         s = serializers.ProductSerializer(data, many=True)
+
+
+
         return Response(s.data)
 
     def post(self, request):
@@ -289,18 +331,24 @@ class Product(APIView):
         cost = request.data.get('cost', None)
         qty = request.data.get('qty', None)
         barcode = request.data.get('barcode', None)
-        description = request.data['description']
+        description = request.data.get('description', None)
         category = models.Category.objects.get(id=request.data['category'])
         user = get_user_model().objects.get(username=request.user, is_plan=True)
         pic = request.data['pic']
         supplier_name = request.data.get('supplier_name', None)
+
+        expiry_date = request.data.get('expiry_date', None)
+
+        print(request.data)
+
+        
 
 
         md = models.Product.objects.create(
             name=name, user=user, pic=pic, price=price,
             cost=cost, qty=qty, description=description,
             barcode=barcode,
-            category=category)
+            category=category,expiry_date=expiry_date)
 
         if not supplier_name == None:
             try:
@@ -327,9 +375,10 @@ class Product(APIView):
         pic = request.data['pic']
         cost = request.data.get('cost')
 
-        description = request.data['description']
+        description = request.data.get('description',None)
         category = models.Category.objects.get(
             id=request.data['category'], user=user)
+
 
         PRODUCTS = models.Product.objects.get(user=user, id=id)
         PRODUCTS.name = name
@@ -340,6 +389,9 @@ class Product(APIView):
         PRODUCTS.description = description
         PRODUCTS.category = category
         PRODUCTS.barcode = request.data.get('barcode', PRODUCTS.barcode)
+        PRODUCTS.expiry_date = request.data.get('expiry_date',PRODUCTS.expiry_date)
+        
+        
 
         if not pic == 'null':
             PRODUCTS.pic = compress_image(pic)
@@ -488,6 +540,14 @@ def discountCalculatorWithPerctange(self, price, discount_percentage):
     discount = round((float(price) * discount_percentage / 100), 2)
     return discount
 
+def checkiinclude(id, soldproducts):
+        if not soldproducts == None:
+            for i in soldproducts:
+                if i['name'] == id:
+                    return True
+                print(i['name'])
+            return False
+        return True
 
 class Sales(APIView):
     # permission_classes = [AllowAny]P
@@ -670,10 +730,13 @@ class Sales(APIView):
 
         Product = models.SoldProduct.objects.filter(sales=S)
         for p in Product:
-            product = models.Product.objects.get(id=p.productid, user=user)
-            product.qty = int(product.qty) + int(p.qty)
-            product.save()
-            p.delete()
+            try:
+                product = models.Product.objects.get(id=p.productid, user=user)
+                product.qty = int(product.qty) + int(p.qty)
+                product.save()
+                p.delete()
+            except ObjectDoesNotExist:
+                pass
         S.delete()
 
         return Response(status=status.HTTP_201_CREATED)
@@ -682,30 +745,59 @@ class Sales(APIView):
     # if user increase product qty then it will be decrease from the Product models qty and if user decrease product qty then it will be increase from the Product models qty
     # then it will be updated in the SoldProduct Database
 
+    
+
     def put(self, request):
         print(request.data)
         id = request.data['id']
         user = get_user_model().objects.get(username=request.user, is_plan=True)
-        customerName = request.data['customerName']
         products = request.data['products']
 
+        soldproducts =  request.data.get('newproducts',None)
+
         S = models.Sales.objects.get(user=user, receiptNumber=id)
-        S.customerName = customerName
+        S.customerName = request.data.get('customerName', S.customerName)
      #   S.totalAmount = totalAmount
         # S.tax = tax
         # S.discount = discount
         # S.grandtotal = grandtotal
         # S.description = description
         # S.deliveryCharges = deliveryCharges
-        S.save()
 
         editedProducts = products
 
         currentSoldProduct = models.SoldProduct.objects.filter(
             sales=S, user=user)
-
-        pf = 0  # total profit
+        
         ta = 0  # total amount
+        pf = 0  # total profit
+
+        if not soldproducts == None:
+            for newpd in soldproducts:
+                pd = models.Product.objects.get(id=newpd['name'], user=user)
+                pd.qty = int(pd.qty) - int(newpd['qty'])
+                pd.save()
+
+                profit = (float(newpd['price']) -
+                              float(pd.cost)) * float(newpd['qty'])
+
+                ta = (float(pd.price)) * float(newpd['qty'])
+
+                a = models.SoldProduct.objects.create(
+                        name=pd.name, price=newpd['price'], qty=newpd['qty'],
+                        productid=pd.id, profit=profit, sales=S, user=user)
+                
+                print(a,"Succes")
+                
+                ta += float(S.totalAmount)
+                pf += profit
+                S.save()
+            # return Response(status=status.HTTP_201_CREATED)
+
+        
+
+        
+      
 
         for currentProduct in currentSoldProduct:
             found = False
@@ -735,12 +827,16 @@ class Sales(APIView):
                     currentProduct.save()
 
                     break
-            if not found:
-                product = models.Product.objects.get(
-                    id=currentProduct.productid, user=user)
-                product.qty += int(currentProduct.qty)
-                product.save()
-                currentProduct.delete()
+            
+            check = checkiinclude(currentProduct.productid , soldproducts)
+
+            if check:
+                if not found:
+                    product = models.Product.objects.get(
+                        id=currentProduct.productid, user=user)
+                    product.qty =int(product.qty) + int(currentProduct.qty)
+                    product.save()
+                    currentProduct.delete()
 
         S.totalAmount = ta
         S.grandtotal = ta + taxCalculatorWithPerctange(self, ta, S.tax) - discountCalculatorWithPerctange(
@@ -1506,7 +1602,7 @@ class ExcelUploadNExportAPIView(APIView):  # for products
         ws.title = "Products"
 
         # Define the columns for the worksheet
-        columns = ['Product Name', 'Buy Price', 'Sale Price', 'Qty'
+        columns = ['Product Name', 'Buy Price', 'Sale Price', 'Qty',
                    'Category', 'Description', 'Barcode']
 
         # Set the column headers for the worksheet
@@ -1518,11 +1614,11 @@ class ExcelUploadNExportAPIView(APIView):  # for products
         for row_num, product in enumerate(products, 2):
             ws.cell(row=row_num, column=1, value=product.name)
             ws.cell(row=row_num, column=2, value=product.cost)
-            ws.cell(row=row_num, column=2, value=product.price)
-            ws.cell(row=row_num, column=3, value=product.qty)
-            ws.cell(row=row_num, column=4, value=product.category.title)
-            ws.cell(row=row_num, column=5, value=product.description)
-            ws.cell(row=row_num, column=6,
+            ws.cell(row=row_num, column=3, value=product.price)
+            ws.cell(row=row_num, column=4, value=product.qty)
+            ws.cell(row=row_num, column=5, value=product.category.title)
+            ws.cell(row=row_num, column=6, value=product.description)
+            ws.cell(row=row_num, column=7,
                     value=product.barcode)
 
         # Set the response headers

@@ -53,6 +53,9 @@ class Product(models.Model):
     pic = models.ImageField(upload_to="img/product/%y/%mm/%dd", null=True)
     barcode =  models.CharField(max_length=255, null=True, blank=True, default=0)
     supplier_payment  = models.CharField(max_length=255, null=True, blank=True, default=0)
+    expiry_date = models.DateField(null=True, blank=True, default=None)
+
+
     user = models.ForeignKey(User, on_delete=models.CASCADE)
 
 
@@ -207,6 +210,11 @@ class Device(models.Model):
     device_name = models.CharField(max_length=244, null=False)
     acc_type = models.CharField(max_length=50, null=True, default="Cashier")
     login_time = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return self.user.username + ' ' + self.device_name
+
+
 
 class ThreeDigitsGroup(models.Model):
     user = models.ForeignKey(
