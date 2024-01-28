@@ -76,7 +76,7 @@ class SalesSerializer(serializers.ModelSerializer):
     class Meta:
         model = models.Sales()
         fields = ['receiptNumber','voucherNumber', 'customerName', 'sproduct', 'totalAmount', 'totalProfit', 
-                  'tax', 'discount', 'grandtotal', 'deliveryCharges', 'date', 'description','customer_payment']
+                  'tax','isDiscountAmount', 'discount', 'grandtotal', 'deliveryCharges', 'date', 'description','customer_payment']
 
 class CustomerSerializer(serializers.ModelSerializer):
     sales = SalesSerializer(many=True, read_only=True)

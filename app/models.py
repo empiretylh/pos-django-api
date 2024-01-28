@@ -95,6 +95,7 @@ class Sales(models.Model):
     date = models.DateTimeField(auto_now_add=True)
     description = models.TextField(blank=True, null=True)
     customer_payment = models.CharField(max_length=20, null=True, blank=True, default='0')
+    isDiscountAmount = models.BooleanField(default=False)
 
     def save(self, *args, **kwargs):
         if self.customer_payment == None:

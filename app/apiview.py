@@ -221,10 +221,10 @@ class ProfileUpdate(APIView):
 
         print(request.data)
         user = get_user_model().objects.get(username=request.user)
-        name = request.data.get('name', None)
-        email = request.data.get('email', None)
-        phone = request.data.get('phone', None)
-        address = request.data.get('address', None)
+        name = request.data.get('name', user.name)
+        email = request.data.get('email', user.email)
+        phone = request.data.get('phone', user.phoneno)
+        address = request.data.get('address', user.address)
 
         if name is not None:
             user.name = name
@@ -334,7 +334,7 @@ class Product(APIView):
         description = request.data.get('description', None)
         category = models.Category.objects.get(id=request.data['category'])
         user = get_user_model().objects.get(username=request.user, is_plan=True)
-        pic = request.data['pic']
+        pic = request.data.get('pic', 'null')
         supplier_name = request.data.get('supplier_name', None)
 
         expiry_date = request.data.get('expiry_date', None)
@@ -369,24 +369,28 @@ class Product(APIView):
     def put(self, request):
         id = request.data['id']
         user = get_user_model().objects.get(username=request.user, is_plan=True)
-        name = request.data['name']
-        price = request.data['price']
-        qty = request.data['qty']
-        pic = request.data['pic']
-        cost = request.data.get('cost')
+       
+        pic = request.data.get('pic','null')
+     
+
+        print(request.data)
+
 
         description = request.data.get('description',None)
-        category = models.Category.objects.get(
-            id=request.data['category'], user=user)
+        
 
 
         PRODUCTS = models.Product.objects.get(user=user, id=id)
-        PRODUCTS.name = name
-        PRODUCTS.price = price
-        PRODUCTS.qty = qty
-        PRODUCTS.cost = cost
+        PRODUCTS.name = request.data.get('name', PRODUCTS.name)
+        PRODUCTS.price = request.data.get('price', PRODUCTS.price)
+        PRODUCTS.qty = request.data.get('qty', PRODUCTS.qty)
+        PRODUCTS.cost = request.data.get('cost', PRODUCTS.cost)
         # PRODUCTS.date = date
-        PRODUCTS.description = description
+        PRODUCTS.description = request.data.get('description', PRODUCTS.description)
+
+        category = models.Category.objects.get(
+            id=request.data.get('category',PRODUCTS.category.id), user=user)
+
         PRODUCTS.category = category
         PRODUCTS.barcode = request.data.get('barcode', PRODUCTS.barcode)
         PRODUCTS.expiry_date = request.data.get('expiry_date',PRODUCTS.expiry_date)
@@ -401,6 +405,7 @@ class Product(APIView):
         return Response(status=status.HTTP_201_CREATED)
 
     def delete(self, request):
+        print(request.data)
         id = request.data['id']
         user = get_user_model().objects.get(username=request.user, is_plan=True)
 
@@ -422,21 +427,21 @@ class ProductPriceChangeWithPercentage(APIView):
         if minus_percentage is not None:
             products = models.Product.objects.filter(user=user)
             for product in products:
-                print(product.price, "Original ")
-                minus_percentage = float(minus_percentage)
-                new_price = round(
-                    float(product.price) - (float(product.price) * minus_percentage / 100), 2)
-                product.price = new_price
-                print(product.price, "Minus ")
-                product.save()
+                if product.price is not None and minus_percentage is not None:
+                    minus_percentage = int(float(minus_percentage))
+                    new_price = round(
+                        int(float(product.price)) - (int(float(product.price)) * int(float(minus_percentage)) / 100), 2) 
+                    product.price = int(new_price)
+                    product.save()
 
         if plus_percentage is not None:
             products = models.Product.objects.filter(user=user)
             for product in products:
-                new_price = round(
-                    float(product.price) + (float(product.price) * float(plus_percentage) / 100), 2)
-                product.price = new_price
-                product.save()
+                if product.price is not None and plus_percentage is not None:
+                    new_price = round(
+                        int(float(product.price)) + (int(float(product.price)) * int(float(plus_percentage)) / 100), 2)   
+                    product.price = int(new_price)
+                    product.save()
 
         return Response(status=status.HTTP_201_CREATED)
 
@@ -449,7 +454,7 @@ class ProductPrice(APIView):
         # Sum all products cost and multiply with qty to calucate purchase
         total_purchase = 0
         for product in products:
-            total_purchase += float(product.cost) * float(product.qty)
+            total_purchase += int(product.cost) * int(product.qty)
 
         return Response(data=total_purchase, status=status.HTTP_201_CREATED)
 
@@ -535,9 +540,12 @@ def taxCalculatorWithPerctange(self, price, tax_percentage):
     return tax
 
 
-def discountCalculatorWithPerctange(self, price, discount_percentage):
-    discount_percentage = float(discount_percentage)
-    discount = round((float(price) * discount_percentage / 100), 2)
+def discountCalculatorWithPerctange(self, price, discount_value, isDiscountAmount=False):
+    if isDiscountAmount:
+        return int(float(price) - float(discount_value))
+
+    discount_value = float(discount_value)
+    discount = round((float(price) * discount_value / 100), 2)
     return discount
 
 def checkiinclude(id, soldproducts):
@@ -613,10 +621,13 @@ class Sales(APIView):
         grandtotal = request.data['grandtotal']
         description = request.data['description']
         deliveryCharges = request.data.get('deliveryCharges', None)
-        isSaveCustomer = request.data.get('isSaveCustomer', False)
         payment_amount =  request.data.get('payment_amount',None)
+        isSaveCustomer = request.data.get('isSaveCustomer', 'false').lower() == 'true'
+        isDiscountAmount = request.data.get('isDiscountAmount', 'false').lower() == 'true'
 
         # receiptnumber from sales table and plus one
+
+        print(isDiscountAmount,"Discount amount")
 
         user = get_user_model().objects.get(username=request.user, is_plan=True)
         last = models.Sales.objects.filter(user=user).last()
@@ -626,9 +637,13 @@ class Sales(APIView):
         else:
             rn = str(int(last.voucherNumber) + 1).zfill(5)
 
+        # if isDiscountAmount == 'true':
+        #     isDiscountAmount = True
+
         S = models.Sales.objects.create(user=user, customerName=customerName, voucherNumber=rn,
                                         totalAmount=totalAmount, tax=tax, discount=discount, grandtotal=grandtotal,customer_payment=payment_amount,
-                                        deliveryCharges=deliveryCharges, description=description)
+                                        deliveryCharges=deliveryCharges, isDiscountAmount = isDiscountAmount,
+                                        description=description)
         
         S.save()
 
@@ -664,6 +679,9 @@ class Sales(APIView):
                 try:
                     category = models.Category.objects.get(
                         title='Extra Products', user=user)
+                    if not b.get('cost'):
+                        b['cost'] = 0
+
                     product = models.Product.objects.create(
                         name=b['pdname'], user=user, price=b['price'], cost=int(
                             b['cost']),
@@ -699,14 +717,14 @@ class Sales(APIView):
 
         # S.totalProfit = totalProfit - taxCalculatorWithPerctange(self, totalProfit, S.tax)
         S.totalProfit = totalProfit - \
-            discountCalculatorWithPerctange(self, totalAmount, S.discount)
+            discountCalculatorWithPerctange(self, totalAmount, S.discount, isDiscountAmount)
         
 
         S.save()
 
         saleseri = serializers.SalesSerializer(S)
 
-        if isSaveCustomer == 'true':
+        if isSaveCustomer : # == 'true':
             try:
                 Customer = models.CustomerName.objects.get(
                     name=customerName, user=user)
@@ -749,13 +767,19 @@ class Sales(APIView):
 
     def put(self, request):
         print(request.data)
-        id = request.data['id']
+        id = request.data['id'] # receipt Number
         user = get_user_model().objects.get(username=request.user, is_plan=True)
-        products = request.data['products']
+        products = request.data['products'] # old products
 
         soldproducts =  request.data.get('newproducts',None)
 
         S = models.Sales.objects.get(user=user, receiptNumber=id)
+        isSaveCustomer = True
+
+        if float(S.customer_payment) == float(S.grandtotal):
+            isSaveCustomer = False
+
+
         S.customerName = request.data.get('customerName', S.customerName)
      #   S.totalAmount = totalAmount
         # S.tax = tax
@@ -772,39 +796,16 @@ class Sales(APIView):
         ta = 0  # total amount
         pf = 0  # total profit
 
-        if not soldproducts == None:
-            for newpd in soldproducts:
-                pd = models.Product.objects.get(id=newpd['name'], user=user)
-                pd.qty = int(pd.qty) - int(newpd['qty'])
-                pd.save()
-
-                profit = (float(newpd['price']) -
-                              float(pd.cost)) * float(newpd['qty'])
-
-                ta = (float(pd.price)) * float(newpd['qty'])
-
-                a = models.SoldProduct.objects.create(
-                        name=pd.name, price=newpd['price'], qty=newpd['qty'],
-                        productid=pd.id, profit=profit, sales=S, user=user)
-                
-                print(a,"Succes")
-                
-                ta += float(S.totalAmount)
-                pf += profit
-                S.save()
+       
             # return Response(status=status.HTTP_201_CREATED)
-
-        
-
-        
-      
 
         for currentProduct in currentSoldProduct:
             found = False
+            print(currentProduct.id, "Current Product id")
             for editedProduct in editedProducts:
+                
                 if currentProduct.id == editedProduct['id']:
                     found = True
-                    print("CURRENT PRODUCTID", currentProduct.id)
                     product = models.Product.objects.get(
                         id=currentProduct.productid, user=user)
                     if int(currentProduct.qty) > int(editedProduct['qty']):
@@ -822,27 +823,57 @@ class Sales(APIView):
                            float(product.cost)) * float(editedProduct['qty'])
                     ta += (float(currentProduct.price)) * \
                         float(editedProduct['qty'])
+                    print(editedProduct['qty'], 'Changing edited product : ', ta)
+
                     currentProduct.profit = (
                         float(currentProduct.price) - float(product.cost)) * float(editedProduct['qty'])
                     currentProduct.save()
 
                     break
             
-            check = checkiinclude(currentProduct.productid , soldproducts)
+            # check = checkiinclude(currentProduct.productid , soldproducts)
+            # if check:
+            if not found:
+                product = models.Product.objects.get(
+                    id=currentProduct.productid, user=user)
+                product.qty =int(product.qty) + int(currentProduct.qty)
+                product.save()
+                currentProduct.delete()
+          
 
-            if check:
-                if not found:
-                    product = models.Product.objects.get(
-                        id=currentProduct.productid, user=user)
-                    product.qty =int(product.qty) + int(currentProduct.qty)
-                    product.save()
-                    currentProduct.delete()
+        if not soldproducts == None:
+            for newpd in soldproducts:
+                pd = models.Product.objects.get(id=newpd['name'], user=user)
+                pd.qty = int(pd.qty) - int(newpd['qty'])
+                pd.save()
+
+                profit = (float(newpd['price']) -
+                              float(pd.cost)) * float(newpd['qty'])
+
+                ta += (float(pd.price)) * float(newpd['qty'])
+
+                a = models.SoldProduct.objects.create(
+                        name=pd.name, price=newpd['price'], qty=newpd['qty'],
+                        productid=pd.id, profit=profit, sales=S, user=user)
+                
+                print(a,"Succes")
+                
+                # ta += float(S.totalAmount)
+                pf += profit
+                S.save()
+
+        
+    
 
         S.totalAmount = ta
         S.grandtotal = ta + taxCalculatorWithPerctange(self, ta, S.tax) - discountCalculatorWithPerctange(
-            self, ta, S.discount) + float(S.deliveryCharges)
+            self, ta, S.discount, S.isDiscountAmount) + float(S.deliveryCharges)
+
+        if not isSaveCustomer:
+            S.customer_payment = S.grandtotal
+
         S.totalProfit = pf - \
-            discountCalculatorWithPerctange(self, ta, S.discount)
+            discountCalculatorWithPerctange(self, ta, S.discount, S.isDiscountAmount)
         S.save()
 
         return Response(status=status.HTTP_201_CREATED)
@@ -875,6 +906,7 @@ class CustomerView(APIView):
         customer_id = request.data.get("customer_id", None)
         sales_receipt =  request.data.get('sales', None)
 
+        
         # sales data have only saleReceiptNumber [1, 4, 6, 0]
 
         if not sales_receipt == None:
@@ -893,6 +925,16 @@ class CustomerView(APIView):
                 S = models.Sales.objects.get(user=user, receiptNumber=sale_id)
                 S.customer_payment = int(S.customer_payment) + int(customer_payment)
                 S.save()
+
+        id = request.data.get('id', None)
+        name = request.data.get('name', None)
+        description = request.data.get('description', None)
+        
+        if not id == None:
+            C = models.CustomerName.objects.get(id=id)
+            C.name = name
+            C.description = description
+            C.save()
 
         return Response(status=status.HTTP_200_OK)
 
@@ -965,6 +1007,16 @@ class SupplierView(APIView):
                 S = models.Product.objects.get(id=product_id)
                 S.supplier_payment = int(S.supplier_payment) + int(supplier_payment)
                 S.save()
+
+        id = request.data.get('id', None)
+        name = request.data.get('name', None)
+        description = request.data.get('description', None)
+        
+        if not id == None:
+            C = models.Supplier.objects.get(id=id)
+            C.name = name
+            C.description = description
+            C.save()
 
         return Response(status=status.HTTP_200_OK)
 
