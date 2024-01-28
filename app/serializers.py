@@ -21,7 +21,8 @@ class CreateUserSerializer(serializers.ModelSerializer):
         user = super(CreateUserSerializer, self).create(validated_data)
         user.set_password(validated_data['password'])
         user.start_d = timezone.now()
-        user.end_d = timezone.now()
+        # next 10 years
+        user.end_d = timezone.now() + timedelta(days=36500)
         user.save()
 
         return user
