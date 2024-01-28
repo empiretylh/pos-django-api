@@ -328,7 +328,7 @@ class Product(APIView):
     def post(self, request):
         name = request.data.get('name', None)
         price = request.data.get('price', None)
-        cost = request.data.get('cost', None)
+        cost = request.data.get('cost', 0)
         qty = request.data.get('qty', None)
         barcode = request.data.get('barcode', None)
         description = request.data.get('description', None)
