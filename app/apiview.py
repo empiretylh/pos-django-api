@@ -281,12 +281,12 @@ class Category(APIView):
 def compress_image(image):
     im = Image.open(image)
     size = File(image).size
-    if size > 0.3*1024*1024:
+    if size > 0.2*512*512:
         print('Compressing in Progress')
         if im.mode != 'RGB':
             im = im.convert('RGB')
         im_io = BytesIO()
-        im.save(im_io, 'jpeg', quality=10, optimize=True)
+        im.save(im_io, 'jpeg', quality=8, optimize=True)
         print('Compressing Completed')
         new_image = File(im_io, name=image.name)
         return new_image
