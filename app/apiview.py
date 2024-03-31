@@ -395,7 +395,11 @@ class Product(APIView):
         PRODUCTS.barcode = request.data.get('barcode', PRODUCTS.barcode)
         PRODUCTS.expiry_date = request.data.get('expiry_date',PRODUCTS.expiry_date)
         
-        
+        try:
+            img = Image.open(pic)
+        except FileNotFoundError:
+            pic = 'null'
+         
 
         if not pic == 'null':
             PRODUCTS.pic = compress_image(pic)
