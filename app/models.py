@@ -58,6 +58,9 @@ class Product(models.Model):
     def __str__(self):
         return self.name
 
+class ProductPrice(models.Model):
+    pdid = models.ForeignKey(Product, on_delete=models.CASCADE, related_name="extraprice")
+    extraprice = models.CharField(max_length=30, null=False, blank=False)
 
 class SoldProduct(models.Model):
     name = models.CharField(max_length=255, null=False,

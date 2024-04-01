@@ -339,6 +339,8 @@ class Product(APIView):
 
         expiry_date = request.data.get('expiry_date', None)
 
+        extraprice =  request.data.get('extraprice', None) #'4000, 5000, 6000'
+
         print(request.data)
 
         
@@ -349,6 +351,11 @@ class Product(APIView):
             cost=cost, qty=qty, description=description,
             barcode=barcode,
             category=category,expiry_date=expiry_date)
+
+        if not extraprice == None:
+            extraprice = extraprice.split(',')
+            for p in extraprice:
+                models.ProductPrice.objects.create(pdid=md, extraprice=p)
 
         if not supplier_name == None:
             try:
@@ -394,6 +401,16 @@ class Product(APIView):
         PRODUCTS.category = category
         PRODUCTS.barcode = request.data.get('barcode', PRODUCTS.barcode)
         PRODUCTS.expiry_date = request.data.get('expiry_date',PRODUCTS.expiry_date)
+
+        extraprice =  request.data.get('extraprice', None) #'4000, 5000, 6000'
+
+        if not extraprice == None:
+            # delete all releated product from ProductPrice
+            models.ProductPrice.objects.filter(pdid=PRODUCTS).delete()
+            
+            extraprice = extraprice.split(',')
+            for p in extraprice:
+                models.ProductPrice.objects.create(pdid=PRODUCTS, extraprice=p)
         
         try:
             img = Image.open(pic)
@@ -416,6 +433,8 @@ class Product(APIView):
         PRODUCTS = models.Product.objects.get(user=user, id=id)
         PRODUCTS.delete()
         return Response(status=status.HTTP_201_CREATED)
+
+
 
 
 class ProductPriceChangeWithPercentage(APIView):

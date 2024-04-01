@@ -14,6 +14,7 @@ admin.site.register(models.AppVersion)
 admin.site.register(models.Pricing)
 admin.site.register(models.PricingRequest)
 admin.site.register(models.Device)
+admin.site.register(models.ProductPrice)
 
 
 #Sales Digits App

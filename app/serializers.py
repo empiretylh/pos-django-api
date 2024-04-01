@@ -54,12 +54,19 @@ class CategorySerializer(serializers.ModelSerializer):
         model = models.Category()
         fields = ['id', 'title']
 
+class ExtraPriceSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = models.ProductPrice()
+        fields =['extraprice']
 
 class ProductSerializer(serializers.ModelSerializer):
+
+    extraprice = ExtraPriceSerializer(many=True, read_only=True)
+
     class Meta:
         model = models.Product()
         fields = ['id', 'name', 'price', 'cost', 'qty',
-                  'date', 'description', 'category', 'pic','barcode','supplier_payment','expiry_date']
+                  'date', 'description', 'category', 'pic','barcode','supplier_payment','expiry_date','extraprice']
 
 
 class SoldProductSerializer(serializers.ModelSerializer):
